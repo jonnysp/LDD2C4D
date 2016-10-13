@@ -75,8 +75,8 @@ class Scene(object):
             with open(file, "rb") as file:
                 data = file.read()
         elif file.endswith('.lxf'):
-            with zipfile.ZipFile(file, 'r') as zf:
-                data = zf.read('IMAGE100.LXFML')
+            zf = zipfile.ZipFile(file, 'r')
+            data = zf.read('IMAGE100.LXFML')
         else:
             return
         xml = minidom.parseString(data)
@@ -466,7 +466,11 @@ class LDDDialog(gui.GeDialog):
             if not (str(self.databaselocation) == 'None'):
                 self.TestDatabase()
             else:
-                testfile = str(os.path.join(str(os.getenv('USERPROFILE') or os.getenv('HOME')),'AppData','Roaming','LEGO Company','LEGO Digital Designer','db.lif'))
+                if os.name =='posix':
+                    testfile = str(os.path.join(str(os.getenv('USERPROFILE') or os.getenv('HOME')),'Library','Application Support','LEGO Company','LEGO Digital Designer','db.lif'))
+                else:
+                    testfile = str(os.path.join(str(os.getenv('USERPROFILE') or os.getenv('HOME')),'AppData','Roaming','LEGO Company','LEGO Digital Designer','db.lif'))
+                
                 if os.path.isfile(testfile):
                     self.databaselocation = testfile
                     self.SetString(self.databasestring, self.databaselocation)
