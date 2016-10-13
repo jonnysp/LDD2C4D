@@ -466,7 +466,7 @@ class LDDDialog(gui.GeDialog):
             if not (str(self.databaselocation) == 'None'):
                 self.TestDatabase()
             else:
-                testfile = str(os.getenv('USERPROFILE') or os.getenv('HOME')) + '\AppData\Roaming\LEGO Company\LEGO Digital Designer\db.lif'
+                testfile = str(os.path.join(str(os.getenv('USERPROFILE') or os.getenv('HOME')),'AppData','Roaming','LEGO Company','LEGO Digital Designer','db.lif'))
                 if os.path.isfile(testfile):
                     self.databaselocation = testfile
                     self.SetString(self.databasestring, self.databaselocation)
@@ -646,7 +646,7 @@ class LDDDialog(gui.GeDialog):
     def buildDecoration(self, doc, deco='0'):
         extfile = ''
         if not deco == '0' and self.GetBool(1008) == True:
-            extfile = str(self.texturestring + "\\" + deco + '.png')
+            extfile = os.path.join(self.texturestring, deco + '.png')
             if not os.path.isfile(extfile):
                 f = open(extfile, "wb")
                 f.write(self.database.filelist[DECORATIONPATH + deco + '.png'].read())
@@ -658,12 +658,12 @@ class LDDDialog(gui.GeDialog):
                 m[c4d.ID_BASELIST_NAME] = str(deco)
 
                 shdr_texture = c4d.BaseList2D(c4d.Xbitmap)
-                shdr_texture[c4d.BITMAPSHADER_FILENAME] = extfile
+                shdr_texture[c4d.BITMAPSHADER_FILENAME] = str(extfile)
                 m[c4d.MATERIAL_COLOR_SHADER] = shdr_texture
                 m.InsertShader(shdr_texture)
 
                 shdr_alpha = c4d.BaseList2D(c4d.Xbitmap)
-                shdr_alpha[c4d.BITMAPSHADER_FILENAME] = extfile
+                shdr_alpha[c4d.BITMAPSHADER_FILENAME] = str(extfile)
                 m[c4d.MATERIAL_USE_ALPHA] = True
                 m[c4d.MATERIAL_ALPHA_SHADER] = shdr_alpha
                 m.InsertShader(shdr_alpha)
