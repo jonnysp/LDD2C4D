@@ -72,11 +72,11 @@ class Scene(object):
         self.Bricks = []
         data = ''
         if file.endswith('.lxfml'):
-            file = open(file, "rb")
-            data = file.read()
+            with open(file, "rb") as file:
+                data = file.read()
         elif file.endswith('.lxf'):
-            zf = zipfile.ZipFile(file, 'r')
-            data = zf.read('IMAGE100.LXFML')
+            with zipfile.ZipFile(file, 'r') as zf:
+                data = zf.read('IMAGE100.LXFML')
         else:
             return
         xml = minidom.parseString(data)
@@ -648,9 +648,9 @@ class LDDDialog(gui.GeDialog):
         if not deco == '0' and self.GetBool(1008) == True:
             extfile = os.path.join(self.texturestring, deco + '.png')
             if not os.path.isfile(extfile):
-                f = open(extfile, "wb")
-                f.write(self.database.filelist[DECORATIONPATH + deco + '.png'].read())
-                f.close()
+                with open(extfile, "wb") as f:
+                    f.write(self.database.filelist[DECORATIONPATH + deco + '.png'].read())
+                    f.close()
 
             m = doc.SearchMaterial(str(deco))
             if (m is None):
