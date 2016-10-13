@@ -7,7 +7,7 @@ from c4d import bitmaps, gui, plugins, documents, utils
 from xml.dom import minidom
 
 PLUGIN_ID = 1038148
-VERSION = '1.0.0'
+VERSION = '1.0.1'
 
 print "- - - - - - - - - - - -"
 print "           _           "
