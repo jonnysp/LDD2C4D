@@ -698,16 +698,18 @@ class LDDDialog(gui.GeDialog):
 
                 m[c4d.ID_BASELIST_NAME] = str(deco)
 
-                shdr_texture = c4d.BaseList2D(c4d.Xbitmap)
-                shdr_texture[c4d.BITMAPSHADER_FILENAME] = str(extfile)
-                m[c4d.MATERIAL_COLOR_SHADER] = shdr_texture
-                m.InsertShader(shdr_texture)
-
-                shdr_alpha = c4d.BaseList2D(c4d.Xbitmap)
-                shdr_alpha[c4d.BITMAPSHADER_FILENAME] = str(extfile)
-                m[c4d.MATERIAL_USE_ALPHA] = True
-                m[c4d.MATERIAL_ALPHA_SHADER] = shdr_alpha
-                m.InsertShader(shdr_alpha)
+                if ( m.GetType() == MATERIAL_TYPE_C4D ):
+                    
+                    shdr_texture = c4d.BaseList2D(c4d.Xbitmap)
+                    shdr_texture[c4d.BITMAPSHADER_FILENAME] = str(extfile)
+                    m[c4d.MATERIAL_COLOR_SHADER] = shdr_texture
+                    m.InsertShader(shdr_texture)
+    
+                    shdr_alpha = c4d.BaseList2D(c4d.Xbitmap)
+                    shdr_alpha[c4d.BITMAPSHADER_FILENAME] = str(extfile)
+                    m[c4d.MATERIAL_USE_ALPHA] = True
+                    m[c4d.MATERIAL_ALPHA_SHADER] = shdr_alpha
+                    m.InsertShader(shdr_alpha)
 
                 m.Update(True, False)
                 doc.InsertMaterial(m)
@@ -721,7 +723,7 @@ class LDDDialog(gui.GeDialog):
                 m = c4d.BaseMaterial(c4d.Mmaterial)
             else:
                 m = self.linkTemplate.GetLink().GetClone()
-                
+             
             m[c4d.ID_BASELIST_NAME] = str(lddmat.name)
 
             if ( m.GetType() == MATERIAL_TYPE_C4D ):
