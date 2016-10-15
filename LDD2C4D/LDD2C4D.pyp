@@ -7,7 +7,7 @@ from c4d import bitmaps, gui, plugins, documents, utils
 from xml.dom import minidom
 
 PLUGIN_ID = 1038148
-VERSION = '1.0.1'
+VERSION = '1.0.2'
 
 print "- - - - - - - - - - - -"
 print "           _           "
@@ -22,7 +22,21 @@ print "- - - - - - - - - - - -"
 
 # container ids
 DATABASE = 1000
-TEXTUR = 1009
+TEXTUR = 1001
+
+# Element IDs
+IDM_ABOUT           = 1011
+IDC_EXPORT_TEX      = 1012
+IDC_TEXT_DATABASE   = 1013 
+IDC_BUTTON_DATABASE = 1014
+IDC_BUTTON_LOAD     = 1015
+IDC_SLIDER_SCALE    = 1016
+IDC_TEXT_TEXTURE    = 1017
+IDC_BUTTON_TEXTURE  = 1018
+IDC_MAT_LINK        = 1019
+
+# Material types
+MATERIAL_TYPE_C4D   = 5703
 
 GEOMETRIEPATH = '/Primitives/LOD0/'
 PRIMITIVEPATH = '/Primitives/'
@@ -368,7 +382,8 @@ class LDDDialog(gui.GeDialog):
 
         self.MenuFlushAll()
         self.MenuSubBegin("Info")
-        self.MenuAddString(1001, "About")
+        self.MenuAddString(IDM_ABOUT, "About")
+
         self.MenuSubEnd()
         self.MenuFinished()
 
@@ -378,44 +393,51 @@ class LDDDialog(gui.GeDialog):
         self.GroupBegin(0, c4d.BFH_SCALEFIT, 20, 1, 'Database', 0)
         self.GroupBorder(c4d.BORDER_GROUP_IN)
         self.GroupBorderSpace(5, 5, 5, 5)
-        self.databasestring = self.AddStaticText(id=1002, flags=c4d.BFH_SCALEFIT, initw=0, inith=0, name=self.databaselocation, borderstyle=c4d.BORDER_THIN_IN)
-        self.button = self.AddButton(id=1003, flags=c4d.BFH_RIGHT, initw=8, inith=8, name="...")
+        self.databasestring = self.AddStaticText(id=IDC_TEXT_DATABASE, flags=c4d.BFH_SCALEFIT, initw=0, inith=0, name=self.databaselocation, borderstyle=c4d.BORDER_THIN_IN)
+        self.button = self.AddButton(id=IDC_BUTTON_DATABASE, flags=c4d.BFH_RIGHT, initw=8, inith=8, name="...")
         self.GroupEnd()
 
         self.GroupBegin(id=0, flags=c4d.BFH_SCALEFIT, cols=20, rows=1, title="Scale", groupflags=0)
         self.GroupBorder(c4d.BORDER_GROUP_IN)
         self.GroupBorderSpace(5, 5, 5, 5)
-        self.zoomvalue = self.AddEditSlider(id=1005, flags=c4d.BFH_SCALEFIT, initw=0, inith=0)
-        self.SetInt32(1005, 20, min=1, max=100, step=1, tristate=False)
+        self.zoomvalue = self.AddEditSlider(id=IDC_SLIDER_SCALE, flags=c4d.BFH_SCALEFIT, initw=0, inith=0)
+        self.SetInt32(IDC_SLIDER_SCALE, 20, min=1, max=100, step=1, tristate=False)
         self.GroupEnd()
 
         self.GroupBegin(id=0, flags=c4d.BFH_SCALEFIT, cols=20, rows=1, title='Decoration', groupflags=0)
         self.GroupBorder(c4d.BORDER_GROUP_IN)
         self.GroupBorderSpace(5, 5, 5, 5)
-        self.enabletexture = self.AddCheckbox(id=1008, flags=c4d.BFH_LEFT, initw=0, inith=0, name='Export Texture')
-        self.texturepath = self.AddStaticText(id=1006, flags=c4d.BFH_SCALEFIT, initw=0, inith=0, name=self.texturestring, borderstyle=c4d.BORDER_THIN_IN)
-        self.buttontexture = self.AddButton(id=1007, flags=c4d.BFH_RIGHT, initw=8, inith=8, name="...")
-        self.Enable(1006, self.textureexport)
-        self.Enable(1007, self.textureexport)
+        self.enabletexture = self.AddCheckbox(id=IDC_EXPORT_TEX, flags=c4d.BFH_LEFT, initw=0, inith=0, name='Export Texture')
+        self.texturepath = self.AddStaticText(id=IDC_TEXT_TEXTURE, flags=c4d.BFH_SCALEFIT, initw=0, inith=0, name=self.texturestring, borderstyle=c4d.BORDER_THIN_IN)
+        self.buttontexture = self.AddButton(id=IDC_BUTTON_TEXTURE, flags=c4d.BFH_RIGHT, initw=8, inith=8, name="...")
+        self.Enable(IDC_TEXT_TEXTURE, self.textureexport)
+        self.Enable(IDC_BUTTON_TEXTURE, self.textureexport)
         self.GroupEnd()
 
-        self.buttonload = self.AddButton(id=1004, flags=c4d.BFH_CENTER, initw=200, inith=25, name='Load Model')
-        self.Enable(1004, False)
+        self.GroupBegin(id=0, flags=c4d.BFH_SCALEFIT, cols=20, rows=1, title='Material Template', groupflags=0)
+        self.GroupBorder(c4d.BORDER_GROUP_IN)
+        self.GroupBorderSpace(5, 5, 5, 5)
+        self.AddStaticText(id=1011, flags=c4d.BFH_LEFT, initw=0, inith=0, name="Please drag material here:")
+        self.linkTemplate = self.AddCustomGui(id=IDC_MAT_LINK, pluginid=c4d.CUSTOMGUI_LINKBOX, name="materialTemplate", flags=c4d.BFH_SCALEFIT|c4d.BFV_SCALEFIT, minw=0, minh=0)
+        self.GroupEnd()
+
+        self.buttonload = self.AddButton(id=IDC_BUTTON_LOAD, flags=c4d.BFH_CENTER, initw=200, inith=25, name='Load Model')
+        self.Enable(IDC_BUTTON_LOAD, False)
 
         self.GroupEnd()
         return True
 
     def Command(self, id, msg):
-        if id == 1001:
+        if id == IDM_ABOUT:
             self.About()
-        elif id == 1003:
+        elif id == IDC_BUTTON_DATABASE:
             self.OpenDatabase()
-        elif id == 1004:
+        elif id == IDC_BUTTON_LOAD:
             self.Load()
-        elif id == 1007:
+        elif id == IDC_BUTTON_TEXTURE:
             self.texturestring = c4d.storage.LoadDialog(flags=c4d.FILESELECT_DIRECTORY, title='select texture path')
             self.ChecktexturePath()
-        elif id == 1008:
+        elif id == IDC_EXPORT_TEX:
             self.ChecktexturePath()
         return True
     
@@ -425,7 +447,7 @@ class LDDDialog(gui.GeDialog):
         return True
 
     def ChecktexturePath(self):
-        if self.GetBool(1008):
+        if self.GetBool(IDC_EXPORT_TEX):
             # Check path exist
             if not (str(self.texturestring) == 'None'):
                 if (os.path.isdir(self.texturestring) == False):
@@ -440,10 +462,10 @@ class LDDDialog(gui.GeDialog):
         else:
             self.textureexport = False
 
-        self.SetBool(self.enabletexture,self.textureexport)
-        self.Enable(1006, self.textureexport)
-        self.Enable(1007, self.textureexport)
-        self.SetString(self.texturepath,self.texturestring)
+        self.SetBool(IDC_EXPORT_TEX,self.textureexport)
+        self.Enable(IDC_TEXT_TEXTURE, self.textureexport)
+        self.Enable(IDC_BUTTON_TEXTURE, self.textureexport)
+        self.SetString(IDC_TEXT_TEXTURE,self.texturestring)
         self.UpdatePrefs()
         return self.textureexport
 
@@ -451,7 +473,7 @@ class LDDDialog(gui.GeDialog):
         self.databaselocation = c4d.storage.LoadDialog(type=c4d.FILESELECTTYPE_ANYTHING, title="Select Database (lif)", force_suffix="lif")
         self.SetString(self.databasestring, self.databaselocation)
         self.UpdatePrefs()
-        self.Enable(1004, False)
+        self.Enable(IDC_BUTTON_LOAD, False)
         if not (str(self.databaselocation) == 'None'):
             self.TestDatabase()
         return True
@@ -491,12 +513,12 @@ class LDDDialog(gui.GeDialog):
         self.database = LIFReader(file=self.databaselocation)
 
         if self.database.initok:
-            self.Enable(1004, True)
+            self.Enable(IDC_BUTTON_LOAD, True)
             DBinfo(data=self.database.filelist['/info.xml'].read())
             self.allMaterials = Materials(data=self.database.filelist['/Materials.xml'].read());
             self.allMaterials.setLOC(loc=LOCReader(data=self.database.filelist[MATERIALNAMESPATH + 'EN/localizedStrings.loc'].read()))
         else:
-            self.Enable(1004, False)
+            self.Enable(IDC_BUTTON_LOAD, False)
         return True
 
     def Load(self):
@@ -541,7 +563,7 @@ class LDDDialog(gui.GeDialog):
                         # positions
                         for j in range(0, len(geo.Parts[part].positions)):
                             if (geo.Parts[part].bonemap[j] == i):
-                                geo.Parts[part].positions[j] = ma.Mul(geo.Parts[part].positions[j]) * self.GetInt32(1005)
+                                geo.Parts[part].positions[j] = ma.Mul(geo.Parts[part].positions[j]) * self.GetInt32(IDC_SLIDER_SCALE)
                                 geo.Parts[part].positions[j] = flip.MulV(geo.Parts[part].positions[j])
                         # normals
                         for k in range(0, len(geo.Parts[part].normals)):
@@ -582,7 +604,7 @@ class LDDDialog(gui.GeDialog):
                     obj.InsertTag(selp)
 
                     # decoration
-                    if self.GetBool(1008):
+                    if self.GetBool(IDC_EXPORT_TEX):
                         deco = '0'
                         if hasattr(pa, 'decoration') and len(geo.Parts[part].textures) > 0:
                             if decoCount <= len(pa.decoration):
@@ -649,7 +671,7 @@ class LDDDialog(gui.GeDialog):
 
     def buildDecoration(self, doc, deco='0'):
         extfile = ''
-        if not deco == '0' and self.GetBool(1008) == True:
+        if not deco == '0':
             extfile = os.path.join(self.texturestring, deco + '.png')
             if not os.path.isfile(extfile):
                 with open(extfile, "wb") as f:
@@ -658,7 +680,12 @@ class LDDDialog(gui.GeDialog):
 
             m = doc.SearchMaterial(str(deco))
             if (m is None):
-                m = c4d.BaseMaterial(c4d.Mmaterial)
+                
+                if self.linkTemplate.GetLink() == None:
+                    m = c4d.BaseMaterial(c4d.Mmaterial)
+                else:
+                    m = self.linkTemplate.GetLink().GetClone()
+
                 m[c4d.ID_BASELIST_NAME] = str(deco)
 
                 shdr_texture = c4d.BaseList2D(c4d.Xbitmap)
@@ -680,19 +707,25 @@ class LDDDialog(gui.GeDialog):
     def buildMaterial(self, doc, lddmat):
         m = doc.SearchMaterial(str(lddmat.name))
         if (m is None):
-            m = c4d.BaseMaterial(c4d.Mmaterial)
-            m[c4d.ID_BASELIST_NAME] = str(lddmat.name)
-            m[c4d.MATERIAL_COLOR_COLOR] = c4d.Vector(lddmat.r / 255, lddmat.g / 255, lddmat.b / 255) 
-
-            if lddmat.a < 255:
-                m[c4d.MATERIAL_USE_COLOR] = False
-                m[c4d.MATERIAL_USE_TRANSPARENCY] = True
-                m[c4d.MATERIAL_TRANSPARENCY_BRIGHTNESS] = 1  # lddmat.a / 255
-                m[c4d.MATERIAL_TRANSPARENCY_REFRACTION] = 1.575
-                m[c4d.MATERIAL_TRANSPARENCY_COLOR] = c4d.Vector(lddmat.r / 255, lddmat.g / 255, lddmat.b / 255)
+            if self.linkTemplate.GetLink() == None:
+                m = c4d.BaseMaterial(c4d.Mmaterial)
             else:
-                m[c4d.MATERIAL_USE_COLOR] = True
-                  
+                m = self.linkTemplate.GetLink().GetClone()
+                
+            m[c4d.ID_BASELIST_NAME] = str(lddmat.name)
+
+            if ( m.GetType() == MATERIAL_TYPE_C4D ):
+                m[c4d.MATERIAL_COLOR_COLOR] = c4d.Vector(lddmat.r / 255, lddmat.g / 255, lddmat.b / 255) 
+
+                if lddmat.a < 255:
+                    m[c4d.MATERIAL_USE_COLOR] = False
+                    m[c4d.MATERIAL_USE_TRANSPARENCY] = True
+                    m[c4d.MATERIAL_TRANSPARENCY_BRIGHTNESS] = 1  # lddmat.a / 255
+                    m[c4d.MATERIAL_TRANSPARENCY_REFRACTION] = 1.575
+                    m[c4d.MATERIAL_TRANSPARENCY_COLOR] = c4d.Vector(lddmat.r / 255, lddmat.g / 255, lddmat.b / 255)
+                else:
+                    m[c4d.MATERIAL_USE_COLOR] = True
+            
             doc.InsertMaterial(m)
             m.Update(True, False)
         return m
