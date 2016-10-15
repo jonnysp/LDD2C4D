@@ -83,6 +83,7 @@ class SceneCamera(object):
 
 class Scene(object):
     def __init__(self, file):
+        self.Version = None
         self.Bricks = []
         data = ''
         if file.endswith('.lxfml'):
@@ -96,7 +97,8 @@ class Scene(object):
         xml = minidom.parseString(data)
         lxfml = xml.getElementsByTagName('LXFML')[0]
         self.Name = lxfml.attributes['name'].value
-        print 'Scene "'+ self.Name + '" Brickversion: ' + str(lxfml.getElementsByTagName('Meta')[0].getElementsByTagName('BrickSet')[0].attributes['version'].value)
+        self.Version = lxfml.getElementsByTagName('Meta')[0].getElementsByTagName('BrickSet')[0].attributes['version'].value
+        print 'Scene "'+ self.Name + '" Brickversion: ' + str(self.Version)
         self.Scenecamera = SceneCamera(node=lxfml.getElementsByTagName('Cameras')[0].getElementsByTagName('Camera')[0])
         for bricknode in xml.getElementsByTagName('Brick'):
             self.Bricks.append(Brick(node=bricknode))
@@ -308,10 +310,12 @@ class LIFReader(object):
         self.location = file
         self.filehandle = open(self.location, "rb")
         self.filehandle.seek(0, 0)
+        self.dbinfo = None
 
         if self.filehandle.read(4) == "LIFF":
             self.parse(prefix='', offset=self.readInt(offset=72) + 64)
             if '/Materials.xml' in self.filelist and '/info.xml' in self.filelist:
+                self.dbinfo = DBinfo(data=self.filelist['/info.xml'].read())
                 print "Database OK."
                 self.initok = True
         else:
@@ -367,7 +371,8 @@ class DBinfo(object):
     def __init__(self, data):
         xml = minidom.parseString(data)
         bricksnode = xml.getElementsByTagName('Bricks')[0]
-        print 'Database Brickversion: ' + str(bricksnode.attributes['version'].value)
+        self.Version = bricksnode.attributes['version'].value
+        print 'Database Brickversion: ' + str(self.Version)
 
 class LDDDialog(gui.GeDialog):
     LDDData = None
@@ -514,7 +519,7 @@ class LDDDialog(gui.GeDialog):
 
         if self.database.initok:
             self.Enable(IDC_BUTTON_LOAD, True)
-            DBinfo(data=self.database.filelist['/info.xml'].read())
+            
             self.allMaterials = Materials(data=self.database.filelist['/Materials.xml'].read());
             self.allMaterials.setLOC(loc=LOCReader(data=self.database.filelist[MATERIALNAMESPATH + 'EN/localizedStrings.loc'].read()))
         else:
@@ -531,6 +536,11 @@ class LDDDialog(gui.GeDialog):
             return
 
         self.Scene = Scene(file=self.Scenefile)
+
+        if not self.database.dbinfo.Version == self.Scene.Version:
+            if gui.QuestionDialog("The scene version differs from the database version, which can lead to errors. Continue?") == False:
+                return
+
         doc = c4d.documents.GetActiveDocument()
         doc.StartUndo()
         scenenode = c4d.BaseObject(c4d.Onull)
