@@ -398,23 +398,23 @@ class LDDDialog(gui.GeDialog):
         self.GroupBegin(0, c4d.BFH_SCALEFIT, 20, 1, 'Database', 0)
         self.GroupBorder(c4d.BORDER_GROUP_IN)
         self.GroupBorderSpace(5, 5, 5, 5)
-        self.databasestring = self.AddStaticText(id=IDC_TEXT_DATABASE, flags=c4d.BFH_SCALEFIT, initw=0, inith=0, name=self.databaselocation, borderstyle=c4d.BORDER_THIN_IN)
-        self.button = self.AddButton(id=IDC_BUTTON_DATABASE, flags=c4d.BFH_RIGHT, initw=8, inith=8, name="...")
+        self.AddStaticText(id=IDC_TEXT_DATABASE, flags=c4d.BFH_SCALEFIT, initw=0, inith=0, name='', borderstyle=c4d.BORDER_THIN_IN)
+        self.AddButton(id=IDC_BUTTON_DATABASE, flags=c4d.BFH_RIGHT, initw=8, inith=8, name="...")
         self.GroupEnd()
 
         self.GroupBegin(id=0, flags=c4d.BFH_SCALEFIT, cols=20, rows=1, title="Scale", groupflags=0)
         self.GroupBorder(c4d.BORDER_GROUP_IN)
         self.GroupBorderSpace(5, 5, 5, 5)
-        self.zoomvalue = self.AddEditSlider(id=IDC_SLIDER_SCALE, flags=c4d.BFH_SCALEFIT, initw=0, inith=0)
+        self.AddEditSlider(id=IDC_SLIDER_SCALE, flags=c4d.BFH_SCALEFIT, initw=0, inith=0)
         self.SetInt32(IDC_SLIDER_SCALE, 20, min=1, max=100, step=1, tristate=False)
         self.GroupEnd()
 
         self.GroupBegin(id=0, flags=c4d.BFH_SCALEFIT, cols=20, rows=1, title='Decoration', groupflags=0)
         self.GroupBorder(c4d.BORDER_GROUP_IN)
         self.GroupBorderSpace(5, 5, 5, 5)
-        self.enabletexture = self.AddCheckbox(id=IDC_EXPORT_TEX, flags=c4d.BFH_LEFT, initw=0, inith=0, name='Export Texture')
-        self.texturepath = self.AddStaticText(id=IDC_TEXT_TEXTURE, flags=c4d.BFH_SCALEFIT, initw=0, inith=0, name=self.texturestring, borderstyle=c4d.BORDER_THIN_IN)
-        self.buttontexture = self.AddButton(id=IDC_BUTTON_TEXTURE, flags=c4d.BFH_RIGHT, initw=8, inith=8, name="...")
+        self.AddCheckbox(id=IDC_EXPORT_TEX, flags=c4d.BFH_LEFT, initw=0, inith=0, name='Export Texture')
+        self.AddStaticText(id=IDC_TEXT_TEXTURE, flags=c4d.BFH_SCALEFIT, initw=0, inith=0, name=self.texturestring, borderstyle=c4d.BORDER_THIN_IN)
+        self.AddButton(id=IDC_BUTTON_TEXTURE, flags=c4d.BFH_RIGHT, initw=8, inith=8, name="...")
         self.Enable(IDC_TEXT_TEXTURE, self.textureexport)
         self.Enable(IDC_BUTTON_TEXTURE, self.textureexport)
         self.GroupEnd()
@@ -423,10 +423,10 @@ class LDDDialog(gui.GeDialog):
         self.GroupBorder(c4d.BORDER_GROUP_IN)
         self.GroupBorderSpace(5, 5, 5, 5)
         self.AddStaticText(id=1011, flags=c4d.BFH_LEFT, initw=0, inith=0, name="Please drag material here:")
-        self.linkTemplate = self.AddCustomGui(id=IDC_MAT_LINK, pluginid=c4d.CUSTOMGUI_LINKBOX, name="materialTemplate", flags=c4d.BFH_SCALEFIT|c4d.BFV_SCALEFIT, minw=0, minh=0)
+        self.linkTemplate = self.AddCustomGui(id=IDC_MAT_LINK, pluginid=c4d.CUSTOMGUI_LINKBOX, name="materialTemplate", flags=c4d.BFH_SCALEFIT, minw=0, minh=0)
         self.GroupEnd()
 
-        self.buttonload = self.AddButton(id=IDC_BUTTON_LOAD, flags=c4d.BFH_CENTER, initw=200, inith=25, name='Load Model')
+        self.AddButton(id=IDC_BUTTON_LOAD, flags=c4d.BFH_CENTER, initw=200, inith=25, name='Load Model')
         self.Enable(IDC_BUTTON_LOAD, False)
 
         self.GroupEnd()
@@ -476,7 +476,7 @@ class LDDDialog(gui.GeDialog):
 
     def OpenDatabase(self):
         self.databaselocation = c4d.storage.LoadDialog(type=c4d.FILESELECTTYPE_ANYTHING, title="Select Database (lif)", force_suffix="lif")
-        self.SetString(self.databasestring, self.databaselocation)
+        self.SetString(IDC_TEXT_DATABASE, self.databaselocation)
         self.UpdatePrefs()
         self.Enable(IDC_BUTTON_LOAD, False)
         if not (str(self.databaselocation) == 'None'):
@@ -488,8 +488,8 @@ class LDDDialog(gui.GeDialog):
         if self.LDDData:
             self.databaselocation = self.LDDData[DATABASE]
             self.texturestring = self.LDDData[TEXTUR]
-            self.SetString(self.databasestring, self.databaselocation)
-            self.SetString(self.texturepath, self.texturestring)
+            self.SetString(IDC_TEXT_DATABASE, self.databaselocation)
+            self.SetString(IDC_TEXT_TEXTURE, self.texturestring)
             if not (str(self.databaselocation) == 'None'):
                 self.TestDatabase()
             else:
@@ -500,7 +500,7 @@ class LDDDialog(gui.GeDialog):
                 
                 if os.path.isfile(testfile):
                     self.databaselocation = testfile
-                    self.SetString(self.databasestring, self.databaselocation)
+                    self.SetString(IDC_TEXT_DATABASE, self.databaselocation)
                     self.TestDatabase()
             if not (str(self.texturestring) == 'None'):
                 self.ChecktexturePath()
@@ -770,7 +770,7 @@ class MainPlugin(plugins.CommandData):
     def Execute(self, doc):
         if self.dialog is None:
             self.dialog = LDDDialog()
-        return self.dialog.Open(dlgtype=c4d.DLG_TYPE_ASYNC, pluginid=PLUGIN_ID, defaultw=400, defaulth=0)
+        return self.dialog.Open(dlgtype=c4d.DLG_TYPE_ASYNC, pluginid=PLUGIN_ID, defaultw=400, defaulth=500)
 
     def RestoreLayout(self, sec_ref):
         if self.dialog is None:
