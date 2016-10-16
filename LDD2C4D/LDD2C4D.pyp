@@ -698,7 +698,7 @@ class LDDDialog(gui.GeDialog):
 
                 m[c4d.ID_BASELIST_NAME] = str(deco)
 
-                if ( m.GetType() == MATERIAL_TYPE_C4D ):
+                if ( m.CheckType(MATERIAL_TYPE_C4D)):
                     
                     shdr_texture = c4d.BaseList2D(c4d.Xbitmap)
                     shdr_texture[c4d.BITMAPSHADER_FILENAME] = str(extfile)
@@ -726,7 +726,7 @@ class LDDDialog(gui.GeDialog):
              
             m[c4d.ID_BASELIST_NAME] = str(lddmat.name)
 
-            if ( m.GetType() == MATERIAL_TYPE_C4D ):
+            if (m.CheckType(MATERIAL_TYPE_C4D)):
                 m[c4d.MATERIAL_COLOR_COLOR] = c4d.Vector(lddmat.r / 255, lddmat.g / 255, lddmat.b / 255) 
 
                 if lddmat.a < 255:
