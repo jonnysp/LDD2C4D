@@ -7,7 +7,7 @@ from c4d import bitmaps, gui, plugins, documents, utils
 from xml.dom import minidom
 
 PLUGIN_ID = 1038148
-VERSION = '1.0.2'
+VERSION = '1.0.3'
 
 print "- - - - - - - - - - - -"
 print "           _           "
@@ -584,6 +584,35 @@ class LDDDialog(gui.GeDialog):
 
                 obj = c4d.PolygonObject(geo.valuecount(), geo.facecount())
                 obj.SetName(geo.Partname)
+
+                #calc center--------------------------------------------------------
+                min_x = max_x = geo.Parts[0].positions[0].x
+                min_y = max_y = geo.Parts[0].positions[0].y
+                min_z = max_z = geo.Parts[0].positions[0].z
+                for part in geo.Parts:
+                    for j in range(0, len(geo.Parts[part].positions)):
+                        if geo.Parts[part].positions[j].x > max_x:
+                            max_x = geo.Parts[part].positions[j].x
+                        if geo.Parts[part].positions[j].x < min_x:
+                            min_x = geo.Parts[part].positions[j].x
+                        if geo.Parts[part].positions[j].y > max_y:
+                            max_y = geo.Parts[part].positions[j].y
+                        if geo.Parts[part].positions[j].y < min_y:
+                            min_y = geo.Parts[part].positions[j].y
+                        if geo.Parts[part].positions[j].z > max_z:
+                            max_z = geo.Parts[part].positions[j].z
+                        if geo.Parts[part].positions[j].z < min_z:
+                            min_z = geo.Parts[part].positions[j].z
+
+                center = c4d.Vector(max_x + min_x , max_y + min_y , max_z + min_z) * 0.5
+
+                #apply center
+                for part in geo.Parts:
+                    for j in range(0, len(geo.Parts[part].positions)):
+                        geo.Parts[part].positions[j] -= center
+
+                obj.SetAbsPos(center)
+                # -----------------------------------------------------------------
 
                 # Points ----------------------------------------------------------
                 points = []
