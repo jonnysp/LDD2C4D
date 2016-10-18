@@ -609,14 +609,28 @@ class LDDDialog(gui.GeDialog):
                 obj.SetAbsPos(center)
                 # -----------------------------------------------------------------
 
-                # Points ----------------------------------------------------------
+                #Add Points ----------------------------------------------------------
                 points = []
                 for part in geo.Parts:
                     points.extend(geo.Parts[part].positions)
                 obj.SetAllPoints(points)
                 # -----------------------------------------------------------------
 
-                # faces and material ----------------------------------------------
+                #Add Point Selection in Flexparts ---------------------------------
+                for part in geo.Parts:
+                    if len(pa.Bones) > 1:
+                        for i in pa.Bones:
+                            bmap = [x for x, j in enumerate(geo.Parts[part].bonemap) if j == i]
+                            if len(bmap) > 0:
+                                selp = c4d.SelectionTag(c4d.Tpointselection)
+                                selp[c4d.ID_BASELIST_NAME] = str(i)
+                                bs = selp.GetBaseSelect()
+                                for p in bmap:
+                                    bs.Select(p)
+                                obj.InsertTag(selp)
+                #------------------------------------------------------------------       
+
+                #Add faces and material ----------------------------------------------
                 indexOffset = 0
                 faceOffset = 0
                 decoCount = 0
@@ -664,7 +678,7 @@ class LDDDialog(gui.GeDialog):
                     obj.InsertTag(textag)
                 # -----------------------------------------------------------------
 
-                # textures --------------------------------------------------------
+                #Add textures --------------------------------------------------------
                 if geo.texcount() > 0:
                     faceOffset = 0
                     uvwtag = obj.MakeVariableTag(c4d.Tuvw, geo.facecount())
@@ -677,9 +691,9 @@ class LDDDialog(gui.GeDialog):
                                 uvwtag.SetSlow(face + faceOffset, geo.Parts[part].textures[idx1], geo.Parts[part].textures[idx2], geo.Parts[part].textures[idx3], c4d.Vector(0, 0, 0))
                         faceOffset += geo.Parts[part].faceCount
                     obj.InsertTag(uvwtag)
-                    # -----------------------------------------------------------------
+                # -----------------------------------------------------------------
 
-                # normals ---------------------------------------------------------
+                #Add normals ---------------------------------------------------------
                 normalOffset = 0
                 normaltag = obj.MakeVariableTag(c4d.Tnormal, obj.GetPolygonCount())
                 for part in geo.Parts:
