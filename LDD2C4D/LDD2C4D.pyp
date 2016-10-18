@@ -46,7 +46,8 @@ MATERIALNAMESPATH = '/MaterialNames/'
 class Bone(object):
     def __init__(self, node):
         (a, b, c, d, e, f, g, h, i, x, y, z) = map(float, node.attributes['transformation'].value.split(","))
-        self.matrix = c4d.Matrix(c4d.Vector(x, y, z), c4d.Vector(a, b, c), c4d.Vector(d, e, f), c4d.Vector(g, h, i)) 
+        flip = c4d.Matrix(c4d.Vector(0, 0, 0), c4d.Vector(1, 0, 0), c4d.Vector(0, 1, 0), c4d.Vector(0, 0, -1)) 
+        self.matrix = flip * c4d.Matrix(c4d.Vector(x, y, z), c4d.Vector(a, b, c), c4d.Vector(d, e, f), c4d.Vector(g, h, i)) 
 
 class Part(object):
     def __init__(self, node):
@@ -519,7 +520,6 @@ class LDDDialog(gui.GeDialog):
 
         if self.database.initok:
             self.Enable(IDC_BUTTON_LOAD, True)
-            
             self.allMaterials = Materials(data=self.database.filelist['/Materials.xml'].read());
             self.allMaterials.setLOC(loc=LOCReader(data=self.database.filelist[MATERIALNAMESPATH + 'EN/localizedStrings.loc'].read()))
         else:
@@ -552,7 +552,6 @@ class LDDDialog(gui.GeDialog):
         # doc.InsertObject(cam)
         ##-------------------------------------------------------
 
-        flip = c4d.Matrix(c4d.Vector(0, 0, 0), c4d.Vector(1, 0, 0), c4d.Vector(0, 1, 0), c4d.Vector(0, 0, -1))
         statuscount = 0
         allcount = len(self.Scene.Bricks)
 
@@ -574,12 +573,10 @@ class LDDDialog(gui.GeDialog):
                         for j in range(0, len(geo.Parts[part].positions)):
                             if (geo.Parts[part].bonemap[j] == i):
                                 geo.Parts[part].positions[j] = ma.Mul(geo.Parts[part].positions[j]) * self.GetInt32(IDC_SLIDER_SCALE)
-                                geo.Parts[part].positions[j] = flip.MulV(geo.Parts[part].positions[j])
                         # normals
                         for k in range(0, len(geo.Parts[part].normals)):
                             if (geo.Parts[part].bonemap[k] == i):
                                 geo.Parts[part].normals[k] = ma.MulV(geo.Parts[part].normals[k])
-                                geo.Parts[part].normals[k] = flip.MulV(geo.Parts[part].normals[k])
                 # -----------------------------------------------------------------
 
                 obj = c4d.PolygonObject(geo.valuecount(), geo.facecount())
