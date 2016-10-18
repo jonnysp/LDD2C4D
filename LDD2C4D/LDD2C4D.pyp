@@ -239,11 +239,9 @@ class Bone2(object):
         self.tx = float(node.attributes['tx'].value)
         self.ty = float(node.attributes['ty'].value)
         self.tz = float(node.attributes['tz'].value)
-        self.axile = c4d.Vector(utils.Rad(self.angle) * self.ax, utils.Rad(self.angle) * self.ay, utils.Rad(self.angle) * self.az)
-        self.matrix = utils.HPBToMatrix(self.axile, c4d.ROTATIONORDER_XYZGLOBAL)
-        p = c4d.Vector(self.tx, self.ty, self.tz)
-        p = self.matrix.MulV(p)
-        self.matrix.off = -p
+
+        self.matrix = c4d.utils.RotAxisToMatrix(c4d.Vector(self.ax,self.ay,self.az), utils.Rad(self.angle))
+        self.matrix.off = -self.matrix.MulV(c4d.Vector(self.tx, self.ty, self.tz))
 
 class LOCReader(object):
     def __init__(self, data):
