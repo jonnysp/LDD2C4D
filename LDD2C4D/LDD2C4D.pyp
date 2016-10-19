@@ -47,8 +47,8 @@ MATERIALNAMESPATH = '/MaterialNames/'
 class Bone(object):
     def __init__(self, node):
         (a, b, c, d, e, f, g, h, i, x, y, z) = map(float, node.attributes['transformation'].value.split(","))
-        flip = c4d.Matrix(c4d.Vector(0, 0, 0), c4d.Vector(1, 0, 0), c4d.Vector(0, 1, 0), c4d.Vector(0, 0, -1)) 
-        self.matrix = flip * c4d.Matrix(c4d.Vector(x, y, z), c4d.Vector(a, b, c), c4d.Vector(d, e, f), c4d.Vector(g, h, i)) 
+        self.matrix = c4d.Matrix(c4d.Vector(0, 0, 0), c4d.Vector(1, 0, 0), c4d.Vector(0, 1, 0), c4d.Vector(0, 0, -1)) * \
+                      c4d.Matrix(c4d.Vector(x, y, z), c4d.Vector(a, b, c), c4d.Vector(d, e, f), c4d.Vector(g, h, i)) 
 
 class Part(object):
     def __init__(self, node):
@@ -63,11 +63,9 @@ class Part(object):
         if node.hasAttribute('decoration'):
             self.decoration = node.attributes['decoration'].value.split(",")
         self.designID = node.attributes['designID'].value
-        self.Bones = {}
-        bonecount = 0
+        self.Bones = []
         for bonenode in node.getElementsByTagName('Bone'):
-            self.Bones[bonecount] = Bone(node=bonenode)
-            bonecount += 1
+            self.Bones.append(Bone(node=bonenode))
 
 class Brick(object):
     def __init__(self, node):
@@ -165,7 +163,7 @@ class Geometrie(object):
         self.designID = designID
         self.Parts = {}
         self.Partname = ''
-        GeometrieLocation = str(GEOMETRIEPATH) + self.designID + '.g'
+        GeometrieLocation = '{0}{1}{2}'.format(GEOMETRIEPATH, self.designID,'.g')
         GeometrieCount = 0
 
         while str(GeometrieLocation) in database.filelist:
@@ -180,16 +178,15 @@ class Geometrie(object):
         if not (primitive.Flex is None):
             for part in self.Parts:
                 # transform
-                for i in primitive.Flex.Bones:
-                    ma = primitive.Flex.Bones[i].matrix
+                for i, b in enumerate(primitive.Flex.Bones):
                     # positions
                     for j, p in enumerate(self.Parts[part].positions):
                         if (self.Parts[part].bonemap[j] == i):
-                            self.Parts[part].positions[j] = ma.Mul(p)
+                            self.Parts[part].positions[j] = b.matrix.Mul(p)
                     # normals
                     for k, n in enumerate(self.Parts[part].normals):
                         if (self.Parts[part].bonemap[k] == i):
-                            self.Parts[part].normals[k] = ma.MulV(n)
+                            self.Parts[part].normals[k] = b.matrix.MulV(n)
 
     def valuecount(self):
         count = 0
@@ -224,11 +221,9 @@ class Primitive(object):
 
 class Flex(object):
     def __init__(self, node):
-        self.Bones = {}
-        bonecount = 0
+        self.Bones = []
         for bone2node in node.getElementsByTagName('Bone'):
-            self.Bones[bonecount] = Bone2(node=bone2node)
-            bonecount += 1
+            self.Bones.append(Bone2(node=bone2node))
 
 class Bone2(object):
     def __init__(self, node):
@@ -565,16 +560,15 @@ class LDDDialog(gui.GeDialog):
 
                 # transform -------------------------------------------------------
                 for part in geo.Parts:
-                    for i in pa.Bones:
-                        ma = pa.Bones[i].matrix
+                    for i, b in enumerate(pa.Bones):
                         # positions
                         for j, p in enumerate(geo.Parts[part].positions):
                             if (geo.Parts[part].bonemap[j] == i):
-                                geo.Parts[part].positions[j] = ma.Mul(p) * self.GetInt32(IDC_SLIDER_SCALE)
+                                geo.Parts[part].positions[j] = b.matrix.Mul(p) * self.GetInt32(IDC_SLIDER_SCALE)
                         # normals
                         for k, n in enumerate(geo.Parts[part].normals):
                             if (geo.Parts[part].bonemap[k] == i):
-                                geo.Parts[part].normals[k] = ma.MulV(n)
+                                geo.Parts[part].normals[k] = b.matrix.MulV(n)
                 # -----------------------------------------------------------------
 
                 obj = c4d.PolygonObject(geo.valuecount(), geo.facecount())
@@ -613,7 +607,7 @@ class LDDDialog(gui.GeDialog):
                 #Add Point Selection in Flexparts ---------------------------------
                 for part in geo.Parts:
                     if len(pa.Bones) > 1:
-                        for i in pa.Bones:
+                        for i, b in enumerate(pa.Bones):
                             bmap = [x for x, j in enumerate(geo.Parts[part].bonemap) if j == i]
                             if len(bmap) > 0:
                                 selp = c4d.SelectionTag(c4d.Tpointselection)
