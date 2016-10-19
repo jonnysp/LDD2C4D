@@ -2,6 +2,7 @@ import c4d
 import os
 import struct
 import zipfile
+import time
 
 from c4d import bitmaps, gui, plugins, documents, utils
 from xml.dom import minidom
@@ -54,11 +55,11 @@ class Part(object):
         self.Name = ''
         self.materials = node.attributes['materials'].value.split(',')
         lastm = '0'
-        for m in range(0, len(self.materials)):
-            if (self.materials[m] == '0'):
-                self.materials[m] = lastm
+        for i, m in enumerate(self.materials):
+            if (m == '0'):
+                self.materials[i] = lastm
             else:
-                lastm = self.materials[m]
+                lastm = m
         if node.hasAttribute('decoration'):
             self.decoration = node.attributes['decoration'].value.split(",")
         self.designID = node.attributes['designID'].value
@@ -109,9 +110,9 @@ class GeometrieReader(object):
         self.offset = 0
         self.data = data
         self.positions = []
-        self.normals = {}
-        self.textures = {}
-        self.faces = {}
+        self.normals = []
+        self.textures = []
+        self.faces = []
         self.bonemap = {}
 
         if self.readInt() == 1111961649:
@@ -124,14 +125,14 @@ class GeometrieReader(object):
                 self.positions.append(c4d.Vector(self.readFloat(), self.readFloat(), self.readFloat()))
 
             for i in range(0, self.valueCount):
-                self.normals[i] = c4d.Vector(self.readFloat(), self.readFloat(), self.readFloat())
+                 self.normals.append(c4d.Vector(self.readFloat(), self.readFloat(), self.readFloat()))
 
             if (options & 3) == 3:
                 for i in range(0, self.valueCount):
-                    self.textures[i] = c4d.Vector(self.readFloat(), self.readFloat(), 0)
+                    self.textures.append(c4d.Vector(self.readFloat(), self.readFloat(), 0))
 
             for i in range(0, self.faceCount):
-                self.faces[i] = {'a': self.readInt(), 'b': self.readInt(), 'c': self.readInt()}
+                self.faces.append({'a': self.readInt(), 'b': self.readInt(), 'c': self.readInt()})
 
             if (options & 48) == 48:
                 num = self.readInt()
@@ -170,7 +171,7 @@ class Geometrie(object):
         while str(GeometrieLocation) in database.filelist:
             self.Parts[GeometrieCount] = GeometrieReader(data=database.filelist[GeometrieLocation].read())
             GeometrieCount += 1
-            GeometrieLocation = str(GEOMETRIEPATH) + str(self.designID) + '.g' + str(GeometrieCount)
+            GeometrieLocation = '{0}{1}{2}{3}'.format(GEOMETRIEPATH, self.designID,'.g',GeometrieCount)
 
         primitive = Primitive(data = database.filelist[PRIMITIVEPATH + self.designID + '.xml'].read())
         self.Partname = primitive.designname
@@ -182,13 +183,13 @@ class Geometrie(object):
                 for i in primitive.Flex.Bones:
                     ma = primitive.Flex.Bones[i].matrix
                     # positions
-                    for j in range(0, len(self.Parts[part].positions)):
+                    for j, p in enumerate(self.Parts[part].positions):
                         if (self.Parts[part].bonemap[j] == i):
-                            self.Parts[part].positions[j] = ma.Mul(self.Parts[part].positions[j])
+                            self.Parts[part].positions[j] = ma.Mul(p)
                     # normals
-                    for k in range(0, len(self.Parts[part].normals)):
+                    for k, n in enumerate(self.Parts[part].normals):
                         if (self.Parts[part].bonemap[k] == i):
-                            self.Parts[part].normals[k] = ma.MulV(self.Parts[part].normals[k])
+                            self.Parts[part].normals[k] = ma.MulV(n)
 
     def valuecount(self):
         count = 0
@@ -260,7 +261,7 @@ class LOCReader(object):
         t = ord(self.data[self.offset])
         self.offset += 1
         while not t == 0:
-            out += str(chr(t))
+            out = '{0}{1}'.format(out,chr(t))
             t = ord(self.data[self.offset])
             self.offset += 1
         return out
@@ -303,7 +304,6 @@ class LIFFile():
 class LIFReader(object):
     def __init__(self, file):
         self.packedFilesOffset = 84
-        self.folderlist = {}
         self.filelist = {}
         self.initok = False
         self.location = file
@@ -339,7 +339,7 @@ class LIFReader(object):
             t = ord(self.filehandle.read(1))
 
             while not t == 0:
-                entryName += str(chr(t))
+                entryName ='{0}{1}'.format(entryName,chr(t))
                 self.filehandle.seek(1, 1)
                 t = ord(self.filehandle.read(1));
                 offset += 2
@@ -348,11 +348,10 @@ class LIFReader(object):
             self.packedFilesOffset += 20
 
             if entryType == 1:
-                self.folderlist[prefix + entryName] = prefix + entryName
-                offset = self.parse(prefix=str(prefix) + str(entryName), offset=offset)
+                offset = self.parse(prefix='{0}{1}'.format(prefix,entryName), offset=offset)
             elif entryType == 2:
                 fileSize = self.readInt(offset=offset) - 20
-                self.filelist[prefix + entryName] = LIFFile(name=prefix + entryName, offset=self.packedFilesOffset, size=fileSize, handle=self.filehandle)
+                self.filelist['{0}{1}'.format(prefix,entryName)] = LIFFile(name='{0}{1}'.format(prefix,entryName), offset=self.packedFilesOffset, size=fileSize, handle=self.filehandle)
                 offset += 24
                 self.packedFilesOffset += fileSize
 
@@ -539,6 +538,7 @@ class LDDDialog(gui.GeDialog):
             if gui.QuestionDialog("The scene version differs from the database version, which can lead to errors. Continue?") == False:
                 return
 
+        start_time = time.time()
         doc = c4d.documents.GetActiveDocument()
         doc.StartUndo()
         scenenode = c4d.BaseObject(c4d.Onull)
@@ -568,13 +568,13 @@ class LDDDialog(gui.GeDialog):
                     for i in pa.Bones:
                         ma = pa.Bones[i].matrix
                         # positions
-                        for j in range(0, len(geo.Parts[part].positions)):
+                        for j, p in enumerate(geo.Parts[part].positions):
                             if (geo.Parts[part].bonemap[j] == i):
-                                geo.Parts[part].positions[j] = ma.Mul(geo.Parts[part].positions[j]) * self.GetInt32(IDC_SLIDER_SCALE)
+                                geo.Parts[part].positions[j] = ma.Mul(p) * self.GetInt32(IDC_SLIDER_SCALE)
                         # normals
-                        for k in range(0, len(geo.Parts[part].normals)):
+                        for k, n in enumerate(geo.Parts[part].normals):
                             if (geo.Parts[part].bonemap[k] == i):
-                                geo.Parts[part].normals[k] = ma.MulV(geo.Parts[part].normals[k])
+                                geo.Parts[part].normals[k] = ma.MulV(n)
                 # -----------------------------------------------------------------
 
                 obj = c4d.PolygonObject(geo.valuecount(), geo.facecount())
@@ -585,25 +585,19 @@ class LDDDialog(gui.GeDialog):
                 min_y = max_y = geo.Parts[0].positions[0].y
                 min_z = max_z = geo.Parts[0].positions[0].z
                 for part in geo.Parts:
-                    for j in range(0, len(geo.Parts[part].positions)):
-                        if geo.Parts[part].positions[j].x > max_x:
-                            max_x = geo.Parts[part].positions[j].x
-                        if geo.Parts[part].positions[j].x < min_x:
-                            min_x = geo.Parts[part].positions[j].x
-                        if geo.Parts[part].positions[j].y > max_y:
-                            max_y = geo.Parts[part].positions[j].y
-                        if geo.Parts[part].positions[j].y < min_y:
-                            min_y = geo.Parts[part].positions[j].y
-                        if geo.Parts[part].positions[j].z > max_z:
-                            max_z = geo.Parts[part].positions[j].z
-                        if geo.Parts[part].positions[j].z < min_z:
-                            min_z = geo.Parts[part].positions[j].z
+                    for j, p in enumerate(geo.Parts[part].positions):
+                        if p.x > max_x: max_x = p.x
+                        if p.x < min_x: min_x = p.x
+                        if p.y > max_y: max_y = p.y
+                        if p.y < min_y: min_y = p.y
+                        if p.z > max_z: max_z = p.z
+                        if p.z < min_z: min_z = p.z
 
                 center = c4d.Vector(max_x + min_x , max_y + min_y , max_z + min_z) * 0.5
 
                 #apply center
                 for part in geo.Parts:
-                    for j in range(0, len(geo.Parts[part].positions)):
+                    for j, p in enumerate(geo.Parts[part].positions):
                         geo.Parts[part].positions[j] -= center
 
                 obj.SetAbsPos(center)
@@ -640,12 +634,9 @@ class LDDDialog(gui.GeDialog):
                     selp[c4d.ID_BASELIST_NAME] = str(part)
                     bs = selp.GetBaseSelect()
 
-                    for face in geo.Parts[part].faces:
-                        idx3 = int(geo.Parts[part].faces[face]['a'])
-                        idx2 = int(geo.Parts[part].faces[face]['b'])
-                        idx1 = int(geo.Parts[part].faces[face]['c'])
-                        obj.SetPolygon(face + faceOffset, c4d.CPolygon(idx1 + indexOffset, idx2 + indexOffset, idx3 + indexOffset))
-                        bs.Select(face + faceOffset)
+                    for i, face in enumerate(geo.Parts[part].faces): 
+                        obj.SetPolygon(i + faceOffset, c4d.CPolygon(face['c'] + indexOffset, face['b'] + indexOffset, face['a'] + indexOffset))
+                        bs.Select(i + faceOffset)
 
                     indexOffset += geo.Parts[part].valueCount
                     faceOffset += geo.Parts[part].faceCount
@@ -684,11 +675,8 @@ class LDDDialog(gui.GeDialog):
                     uvwtag = obj.MakeVariableTag(c4d.Tuvw, geo.facecount())
                     for part in geo.Parts:
                         if len(geo.Parts[part].textures) > 0:
-                            for face in geo.Parts[part].faces:
-                                idx3 = int(geo.Parts[part].faces[face]['a'])
-                                idx2 = int(geo.Parts[part].faces[face]['b'])
-                                idx1 = int(geo.Parts[part].faces[face]['c'])
-                                uvwtag.SetSlow(face + faceOffset, geo.Parts[part].textures[idx1], geo.Parts[part].textures[idx2], geo.Parts[part].textures[idx3], c4d.Vector(0, 0, 0))
+                            for i, face in enumerate(geo.Parts[part].faces): 
+                                uvwtag.SetSlow(i + faceOffset, geo.Parts[part].textures[face['c']], geo.Parts[part].textures[face['b']], geo.Parts[part].textures[face['a']], c4d.Vector(0, 0, 0))
                         faceOffset += geo.Parts[part].faceCount
                     obj.InsertTag(uvwtag)
                 # -----------------------------------------------------------------
@@ -697,16 +685,13 @@ class LDDDialog(gui.GeDialog):
                 normalOffset = 0
                 normaltag = obj.MakeVariableTag(c4d.Tnormal, obj.GetPolygonCount())
                 for part in geo.Parts:
-                    for face in geo.Parts[part].faces:
-                        idx3 = geo.Parts[part].faces[face]['a']
-                        idx2 = geo.Parts[part].faces[face]['b']
-                        idx1 = geo.Parts[part].faces[face]['c']
-                        self.set_normals(normaltag, face + normalOffset, geo.Parts[part].normals[idx1], geo.Parts[part].normals[idx2], geo.Parts[part].normals[idx3], c4d.Vector(0, 0, 0))
+                    for i, face in enumerate(geo.Parts[part].faces): 
+                        self.set_normals(normaltag, i + normalOffset, geo.Parts[part].normals[face['c']], geo.Parts[part].normals[face['b']], geo.Parts[part].normals[face['a']], c4d.Vector(0, 0, 0))
                     normalOffset += geo.Parts[part].faceCount
                 obj.InsertTag(normaltag)
-                obj.SetPhong(True, True, c4d.utils.Rad(23))
                 # -----------------------------------------------------------------
-
+                
+                obj.SetPhong(True, True, c4d.utils.Rad(23))
                 obj.Message(c4d.MSG_UPDATE)
                 obj.InsertUnder(scenenode)
 
@@ -716,6 +701,7 @@ class LDDDialog(gui.GeDialog):
         doc.AddUndo(c4d.UNDOTYPE_NEW, scenenode)
         c4d.EventAdd(c4d.EVENT_FORCEREDRAW)
         c4d.StatusClear()
+        print("--- %s seconds ---" % (time.time() - start_time))
 
     def buildDecoration(self, doc, deco='0'):
         extfile = ''
