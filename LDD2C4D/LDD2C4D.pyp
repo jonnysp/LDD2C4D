@@ -35,6 +35,7 @@ IDC_SLIDER_SCALE    = 1016
 IDC_TEXT_TEXTURE    = 1017
 IDC_BUTTON_TEXTURE  = 1018
 IDC_MAT_LINK        = 1019
+IDC_INSTANCES       = 1020
 
 # Material types
 MATERIAL_TYPE_C4D   = 5703
@@ -395,6 +396,13 @@ class LDDDialog(gui.GeDialog):
         self.AddButton(id=IDC_BUTTON_DATABASE, flags=c4d.BFH_RIGHT, initw=8, inith=8, name="...")
         self.GroupEnd()
 
+        self.GroupBegin(id=0, flags=c4d.BFH_SCALEFIT, cols=20, rows=1, title='Instance', groupflags=0)
+        self.GroupBorder(c4d.BORDER_GROUP_IN)
+        self.GroupBorderSpace(5, 5, 5, 5)
+        self.AddCheckbox(id=IDC_INSTANCES, flags=c4d.BFH_LEFT, initw=0, inith=0, name='Generate Instance Objects')
+        self.SetBool(IDC_INSTANCES, True)
+        self.GroupEnd()
+
         self.GroupBegin(id=0, flags=c4d.BFH_SCALEFIT, cols=20, rows=1, title="Scale", groupflags=0)
         self.GroupBorder(c4d.BORDER_GROUP_IN)
         self.GroupBorderSpace(5, 5, 5, 5)
@@ -559,7 +567,7 @@ class LDDDialog(gui.GeDialog):
             for pa in bri.Parts:
 
                 #cache geometrie is not flex
-                if len(pa.Bones) > 1:
+                if len(pa.Bones) > 1 or self.GetBool(IDC_INSTANCES) == False:
                     geo = Geometrie(designID=pa.designID, database=self.database)
                 else:
                     if pa.designID not in geometriecache:
@@ -578,7 +586,7 @@ class LDDDialog(gui.GeDialog):
 
                     # transform -------------------------------------------------------
                     for part in geo.Parts:
-                        if len(pa.Bones) > 1:
+                        if len(pa.Bones) > 1 or self.GetBool(IDC_INSTANCES) == False:
                             for i, b in enumerate(pa.Bones):
                                 # positions
                                 for j, p in enumerate(geo.Parts[part].positions):
@@ -650,7 +658,7 @@ class LDDDialog(gui.GeDialog):
 
 
                 #if flex add part without Instance
-                if len(pa.Bones) > 1:
+                if len(pa.Bones) > 1 or self.GetBool(IDC_INSTANCES) == False:
 
                     #Add material ----------------------------------------------
                     decoCount = 0
@@ -734,8 +742,9 @@ class LDDDialog(gui.GeDialog):
                     ins.SetMg(pa.Bones[0].matrix * c4d.Matrix(c4d.Vector(0, 0, 0), c4d.Vector(1, 0, 0), c4d.Vector(0, 1, 0), c4d.Vector(0, 0, -1)))
                     ins.InsertUnder(scenenode)
 
+        if self.GetBool(IDC_INSTANCES):
+            instancnode.InsertUnder(scenenode)  
 
-        instancnode.InsertUnder(scenenode)        
         scenenode.Message(c4d.MSG_UPDATE)
         doc.InsertObject(scenenode)
         doc.Message(c4d.MSG_UPDATE)
