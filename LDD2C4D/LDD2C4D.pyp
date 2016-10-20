@@ -536,9 +536,17 @@ class LDDDialog(gui.GeDialog):
         start_time = time.time()
         doc = c4d.documents.GetActiveDocument()
         doc.StartUndo()
+
         scenenode = c4d.BaseObject(c4d.Onull)
         scenenode.SetName(self.Scene.Name)
 
+        instancnode = c4d.BaseObject(c4d.Onull)
+        instancnode.SetName('InstancesParts')
+        instancnode[c4d.ID_BASEOBJECT_VISIBILITY_EDITOR] = True
+        instancnode[c4d.ID_BASEOBJECT_VISIBILITY_RENDER] = True
+
+        geometriecache = {}
+        instancescache = {}
         ##Camera ------------------------------------------------
         # cam = c4d.CameraObject()
         # cam.SetMg(self.Scene.Scenecamera.matrix)
@@ -555,140 +563,182 @@ class LDDDialog(gui.GeDialog):
 
             for pa in bri.Parts:
 
-                geo = Geometrie(designID=pa.designID, database=self.database)
-                c4d.StatusSetText(geo.Partname)
+                #cache geometrie is not flex
+                if len(pa.Bones) > 1:
+                    geo = Geometrie(designID=pa.designID, database=self.database)
+                else:
+                    if pa.designID not in geometriecache:
+                        geo = Geometrie(designID=pa.designID, database=self.database)
+                        geometriecache[pa.designID] = geo
+                    else:
+                        geo = geometriecache[pa.designID]
 
-                # transform -------------------------------------------------------
-                for part in geo.Parts:
-                    for i, b in enumerate(pa.Bones):
-                        # positions
-                        for j, p in enumerate(geo.Parts[part].positions):
-                            if (geo.Parts[part].bonemap[j] == i):
-                                geo.Parts[part].positions[j] = b.matrix.Mul(p) * self.GetInt32(IDC_SLIDER_SCALE)
-                        # normals
-                        for k, n in enumerate(geo.Parts[part].normals):
-                            if (geo.Parts[part].bonemap[k] == i):
-                                geo.Parts[part].normals[k] = b.matrix.MulV(n)
-                # -----------------------------------------------------------------
 
-                obj = c4d.PolygonObject(geo.valuecount(), geo.facecount())
-                obj.SetName(geo.Partname)
-
-                #calc center--------------------------------------------------------
-                min_x = max_x = geo.Parts[0].positions[0].x
-                min_y = max_y = geo.Parts[0].positions[0].y
-                min_z = max_z = geo.Parts[0].positions[0].z
-                for part in geo.Parts:
-                    for j, p in enumerate(geo.Parts[part].positions):
-                        if p.x > max_x: max_x = p.x
-                        if p.x < min_x: min_x = p.x
-                        if p.y > max_y: max_y = p.y
-                        if p.y < min_y: min_y = p.y
-                        if p.z > max_z: max_z = p.z
-                        if p.z < min_z: min_z = p.z
-
-                center = c4d.Vector(max_x + min_x , max_y + min_y , max_z + min_z) * 0.5
-
-                #apply center
-                for part in geo.Parts:
-                    for j, p in enumerate(geo.Parts[part].positions):
-                        geo.Parts[part].positions[j] -= center
-
-                obj.SetAbsPos(center)
-                # -----------------------------------------------------------------
-
-                #Add Points ----------------------------------------------------------
-                points = []
-                for part in geo.Parts:
-                    points.extend(geo.Parts[part].positions)
-                obj.SetAllPoints(points)
-                # -----------------------------------------------------------------
-
-                #Add Point Selection in Flexparts ---------------------------------
-                for part in geo.Parts:
-                    if len(pa.Bones) > 1:
-                        for i, b in enumerate(pa.Bones):
-                            bmap = [x for x, j in enumerate(geo.Parts[part].bonemap) if j == i]
-                            if len(bmap) > 0:
-                                selp = c4d.SelectionTag(c4d.Tpointselection)
-                                selp[c4d.ID_BASELIST_NAME] = str(i)
-                                bs = selp.GetBaseSelect()
-                                for p in bmap:
-                                    bs.Select(p)
-                                obj.InsertTag(selp)
-                #------------------------------------------------------------------       
-
-                #Add faces and material ----------------------------------------------
-                indexOffset = 0
-                faceOffset = 0
-                decoCount = 0
-                for part in geo.Parts:
-
-                    selp = c4d.SelectionTag(c4d.Tpolygonselection)
-                    selp[c4d.ID_BASELIST_NAME] = str(part)
-                    bs = selp.GetBaseSelect()
-
-                    for i, face in enumerate(geo.Parts[part].faces): 
-                        obj.SetPolygon(i + faceOffset, c4d.CPolygon(face['c'] + indexOffset, face['b'] + indexOffset, face['a'] + indexOffset))
-                        bs.Select(i + faceOffset)
-
-                    indexOffset += geo.Parts[part].valueCount
-                    faceOffset += geo.Parts[part].faceCount
-                    obj.InsertTag(selp)
-
-                    # decoration
-                    if self.GetBool(IDC_EXPORT_TEX):
-                        deco = '0'
-                        if hasattr(pa, 'decoration') and len(geo.Parts[part].textures) > 0:
-                            if decoCount <= len(pa.decoration):
-                                deco = pa.decoration[decoCount]
-                            decoCount += 1
-
-                        dec = self.buildDecoration(doc=doc, deco=deco)
-                        if not dec is None:
-                            decotag = c4d.TextureTag()
-                            decotag.SetMaterial(dec)
-                            decotag[c4d.TEXTURETAG_RESTRICTION] = str(part)
-                            decotag[c4d.TEXTURETAG_PROJECTION] = c4d.TEXTURETAG_PROJECTION_UVW
-                            decotag[c4d.TEXTURETAG_TILE] = False
-                            obj.InsertTag(decotag)
-
-                    # color
-                    lddmat = self.allMaterials.getMaterialbyId(pa.materials[part])
-                    mat = self.buildMaterial(doc=doc, lddmat=lddmat)
-                    textag = c4d.TextureTag()
-                    textag.SetMaterial(mat)
-                    textag[c4d.TEXTURETAG_RESTRICTION] = str(part)
-                    textag[c4d.TEXTURETAG_PROJECTION] = c4d.TEXTURETAG_PROJECTION_UVW
-                    obj.InsertTag(textag)
-                # -----------------------------------------------------------------
-
-                #Add textures --------------------------------------------------------
-                if geo.texcount() > 0:
-                    faceOffset = 0
-                    uvwtag = obj.MakeVariableTag(c4d.Tuvw, geo.facecount())
+                #if geo is flex
+                if pa.designID not in instancescache:
+                    
+                    c4d.StatusSetText(geo.Partname)
+    
+                    obj = c4d.PolygonObject(geo.valuecount(), geo.facecount())
+                    obj.SetName(geo.Partname)
+    
+                    # transform -------------------------------------------------------
                     for part in geo.Parts:
-                        if len(geo.Parts[part].textures) > 0:
-                            for i, face in enumerate(geo.Parts[part].faces): 
-                                uvwtag.SetSlow(i + faceOffset, geo.Parts[part].textures[face['c']], geo.Parts[part].textures[face['b']], geo.Parts[part].textures[face['a']], c4d.Vector(0, 0, 0))
+                        if len(pa.Bones) > 1:
+                            for i, b in enumerate(pa.Bones):
+                                # positions
+                                for j, p in enumerate(geo.Parts[part].positions):
+                                    if (geo.Parts[part].bonemap[j] == i):
+                                        geo.Parts[part].positions[j] = b.matrix.Mul(p) * self.GetInt32(IDC_SLIDER_SCALE)
+                                # normals
+                                for k, n in enumerate(geo.Parts[part].normals):
+                                    if (geo.Parts[part].bonemap[k] == i):
+                                        geo.Parts[part].normals[k] = b.matrix.MulV(n)
+                        else:
+                            for j, p in enumerate(geo.Parts[part].positions):
+                                geo.Parts[part].positions[j] = c4d.Matrix(c4d.Vector(0, 0, 0), c4d.Vector(1, 0, 0), c4d.Vector(0, 1, 0), c4d.Vector(0, 0, -1)).MulV(p) * self.GetInt32(IDC_SLIDER_SCALE)
+                            
+                            for i, b in enumerate(pa.Bones):
+                                for k, n in enumerate(geo.Parts[part].normals):
+                                    if (geo.Parts[part].bonemap[k] == i):
+                                        geo.Parts[part].normals[k] = c4d.Matrix(c4d.Vector(0, 0, 0), c4d.Vector(1, 0, 0), c4d.Vector(0, 1, 0), c4d.Vector(0, 0, -1)).MulV(n)
+                    # -----------------------------------------------------------------
+    
+                    #Add Points ----------------------------------------------------------
+                    points = []
+                    for part in geo.Parts:
+                        points.extend(geo.Parts[part].positions)
+                    obj.SetAllPoints(points)
+                    # -----------------------------------------------------------------
+    
+                    #Add faces  ----------------------------------------------
+                    indexOffset = 0
+                    faceOffset = 0
+                    for part in geo.Parts:
+    
+                        selp = c4d.SelectionTag(c4d.Tpolygonselection)
+                        selp[c4d.ID_BASELIST_NAME] = str(part)
+                        bs = selp.GetBaseSelect()
+    
+                        for i, face in enumerate(geo.Parts[part].faces): 
+                            obj.SetPolygon(i + faceOffset, c4d.CPolygon(face['c'] + indexOffset, face['b'] + indexOffset, face['a'] + indexOffset))
+                            bs.Select(i + faceOffset)
+    
+                        indexOffset += geo.Parts[part].valueCount
                         faceOffset += geo.Parts[part].faceCount
-                    obj.InsertTag(uvwtag)
-                # -----------------------------------------------------------------
+                        obj.InsertTag(selp)
+                    # -----------------------------------------------------------------
+    
+                    #Add textures --------------------------------------------------------
+                    if geo.texcount() > 0:
+                        faceOffset = 0
+                        uvwtag = obj.MakeVariableTag(c4d.Tuvw, geo.facecount())
+                        for part in geo.Parts:
+                            if len(geo.Parts[part].textures) > 0:
+                                for i, face in enumerate(geo.Parts[part].faces): 
+                                    uvwtag.SetSlow(i + faceOffset, geo.Parts[part].textures[face['c']], geo.Parts[part].textures[face['b']], geo.Parts[part].textures[face['a']], c4d.Vector(0, 0, 0))
+                            faceOffset += geo.Parts[part].faceCount
+                        obj.InsertTag(uvwtag)
+                    # -----------------------------------------------------------------
 
-                #Add normals ---------------------------------------------------------
-                normalOffset = 0
-                normaltag = obj.MakeVariableTag(c4d.Tnormal, obj.GetPolygonCount())
-                for part in geo.Parts:
-                    for i, face in enumerate(geo.Parts[part].faces): 
-                        self.set_normals(normaltag, i + normalOffset, geo.Parts[part].normals[face['c']], geo.Parts[part].normals[face['b']], geo.Parts[part].normals[face['a']], c4d.Vector(0, 0, 0))
-                    normalOffset += geo.Parts[part].faceCount
-                obj.InsertTag(normaltag)
-                # -----------------------------------------------------------------
-                
-                obj.SetPhong(True, True, c4d.utils.Rad(23))
-                obj.Message(c4d.MSG_UPDATE)
-                obj.InsertUnder(scenenode)
+                    #Add normals ---------------------------------------------------------
+                    normalOffset = 0
+                    normaltag = obj.MakeVariableTag(c4d.Tnormal, obj.GetPolygonCount())
+                    for part in geo.Parts:
+                        for i, face in enumerate(geo.Parts[part].faces): 
+                            self.set_normals(normaltag, i + normalOffset, geo.Parts[part].normals[face['c']], geo.Parts[part].normals[face['b']], geo.Parts[part].normals[face['a']], c4d.Vector(0, 0, 0))
+                        normalOffset += geo.Parts[part].faceCount
+                    obj.InsertTag(normaltag)
+                    # -----------------------------------------------------------------
 
+                    obj.SetPhong(True, True, c4d.utils.Rad(23))
+                    obj.Message(c4d.MSG_UPDATE)
+
+
+                if len(pa.Bones) > 1:
+                    #Add material ----------------------------------------------
+                    decoCount = 0
+                    for part in geo.Parts:
+    
+                        # decoration
+                        if self.GetBool(IDC_EXPORT_TEX):
+                            deco = '0'
+                            if hasattr(pa, 'decoration') and len(geo.Parts[part].textures) > 0:
+                                if decoCount <= len(pa.decoration):
+                                    deco = pa.decoration[decoCount]
+                                decoCount += 1
+    
+                            dec = self.buildDecoration(doc=doc, deco=deco)
+                            if not dec is None:
+                                decotag = c4d.TextureTag()
+                                decotag.SetMaterial(dec)
+                                decotag[c4d.TEXTURETAG_RESTRICTION] = str(part)
+                                decotag[c4d.TEXTURETAG_PROJECTION] = c4d.TEXTURETAG_PROJECTION_UVW
+                                decotag[c4d.TEXTURETAG_TILE] = False
+                                obj.InsertTag(decotag)
+    
+                        # color
+                        lddmat = self.allMaterials.getMaterialbyId(pa.materials[part])
+                        mat = self.buildMaterial(doc=doc, lddmat=lddmat)
+                        textag = c4d.TextureTag()
+                        textag.SetMaterial(mat)
+                        textag[c4d.TEXTURETAG_RESTRICTION] = str(part)
+                        textag[c4d.TEXTURETAG_PROJECTION] = c4d.TEXTURETAG_PROJECTION_UVW
+                        obj.InsertTag(textag)
+                    # -----------------------------------------------------------------
+                    obj.InsertUnder(scenenode) 
+
+                else:
+
+                    pa.Bones[0].matrix.off *= self.GetInt32(IDC_SLIDER_SCALE)
+
+                    ins = c4d.BaseObject(c4d.Oinstance)
+                    ins[c4d.INSTANCEOBJECT_RENDERINSTANCE] = True
+
+                    if pa.designID in instancescache:
+                        ins[c4d.INSTANCEOBJECT_LINK] = instancescache[pa.designID]
+                        ins.SetName(instancescache[pa.designID].GetName())
+                    else:
+                        instancescache[pa.designID] = obj
+                        obj.InsertUnder(instancnode)
+                        ins[c4d.INSTANCEOBJECT_LINK] = obj
+                        ins.SetName(obj.GetName())
+
+                    #Add material to instance ----------------------------------------------
+                    decoCount = 0
+                    for part in geo.Parts:
+                    	# decoration
+                        if self.GetBool(IDC_EXPORT_TEX):
+                            deco = '0'
+                            if hasattr(pa, 'decoration') and len(geo.Parts[part].textures) > 0:
+                                if decoCount <= len(pa.decoration):
+                                    deco = pa.decoration[decoCount]
+                                decoCount += 1
+    
+                            dec = self.buildDecoration(doc=doc, deco=deco)
+                            if not dec is None:
+                                decotag = c4d.TextureTag()
+                                decotag.SetMaterial(dec)
+                                decotag[c4d.TEXTURETAG_RESTRICTION] = str(part)
+                                decotag[c4d.TEXTURETAG_PROJECTION] = c4d.TEXTURETAG_PROJECTION_UVW
+                                decotag[c4d.TEXTURETAG_TILE] = False
+                                ins.InsertTag(decotag)
+
+                        # color
+                        lddmat = self.allMaterials.getMaterialbyId(pa.materials[part])
+                        mat = self.buildMaterial(doc=doc, lddmat=lddmat)
+                        textag = c4d.TextureTag()
+                        textag.SetMaterial(mat)
+                        textag[c4d.TEXTURETAG_RESTRICTION] = str(part)
+                        textag[c4d.TEXTURETAG_PROJECTION] = c4d.TEXTURETAG_PROJECTION_UVW
+                        ins.InsertTag(textag)
+                    #----------------------------------------------------------------------  
+
+                    ins.SetMg( pa.Bones[0].matrix * c4d.Matrix(c4d.Vector(0, 0, 0), c4d.Vector(1, 0, 0), c4d.Vector(0, 1, 0), c4d.Vector(0, 0, -1)))
+                    ins.InsertUnder(scenenode)
+
+
+        instancnode.InsertUnder(scenenode)        
         scenenode.Message(c4d.MSG_UPDATE)
         doc.InsertObject(scenenode)
         doc.Message(c4d.MSG_UPDATE)
