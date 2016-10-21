@@ -45,11 +45,12 @@ PRIMITIVEPATH = '/Primitives/'
 DECORATIONPATH = '/Decorations/'
 MATERIALNAMESPATH = '/MaterialNames/'
 
+FLIP = c4d.Matrix(c4d.Vector(0, 0, 0), c4d.Vector(1, 0, 0), c4d.Vector(0, 1, 0), c4d.Vector(0, 0, -1))
+
 class Bone(object):
     def __init__(self, node):
         (a, b, c, d, e, f, g, h, i, x, y, z) = map(float, node.attributes['transformation'].value.split(","))
-        self.matrix = c4d.Matrix(c4d.Vector(0, 0, 0), c4d.Vector(1, 0, 0), c4d.Vector(0, 1, 0), c4d.Vector(0, 0, -1)) * \
-                      c4d.Matrix(c4d.Vector(x, y, z), c4d.Vector(a, b, c), c4d.Vector(d, e, f), c4d.Vector(g, h, i)) 
+        self.matrix = FLIP * c4d.Matrix(c4d.Vector(x, y, z), c4d.Vector(a, b, c), c4d.Vector(d, e, f), c4d.Vector(g, h, i)) 
 
 class Part(object):
     def __init__(self, node):
@@ -165,8 +166,8 @@ class Geometrie(object):
         self.Parts = {}
         self.Partname = ''
         GeometrieLocation = '{0}{1}{2}'.format(GEOMETRIEPATH, self.designID,'.g')
+        
         GeometrieCount = 0
-
         while str(GeometrieLocation) in database.filelist:
             self.Parts[GeometrieCount] = GeometrieReader(data=database.filelist[GeometrieLocation].read())
             GeometrieCount += 1
@@ -598,12 +599,12 @@ class LDDDialog(gui.GeDialog):
                                         geo.Parts[part].normals[k] = b.matrix.MulV(n)
                         else:
                             for j, p in enumerate(geo.Parts[part].positions):
-                                geo.Parts[part].positions[j] = c4d.Matrix(c4d.Vector(0, 0, 0), c4d.Vector(1, 0, 0), c4d.Vector(0, 1, 0), c4d.Vector(0, 0, -1)).MulV(p) * self.GetInt32(IDC_SLIDER_SCALE)
+                                geo.Parts[part].positions[j] = FLIP.MulV(p) * self.GetInt32(IDC_SLIDER_SCALE)
                             
                             for i, b in enumerate(pa.Bones):
                                 for k, n in enumerate(geo.Parts[part].normals):
                                     if (geo.Parts[part].bonemap[k] == i):
-                                        geo.Parts[part].normals[k] = c4d.Matrix(c4d.Vector(0, 0, 0), c4d.Vector(1, 0, 0), c4d.Vector(0, 1, 0), c4d.Vector(0, 0, -1)).MulV(n)
+                                        geo.Parts[part].normals[k] = FLIP.MulV(n)
                     # -----------------------------------------------------------------
     
                     #Add Points ----------------------------------------------------------
@@ -612,7 +613,21 @@ class LDDDialog(gui.GeDialog):
                         points.extend(geo.Parts[part].positions)
                     obj.SetAllPoints(points)
                     # -----------------------------------------------------------------
-    
+
+                    #Add Point Selection in Flexparts ---------------------------------
+                    for part in geo.Parts:
+                        if len(pa.Bones) > 1:
+                            for i, b in enumerate(pa.Bones):
+                                bmap = [x for x, j in enumerate(geo.Parts[part].bonemap) if j == i]
+                                if len(bmap) > 0:
+                                    selp = c4d.SelectionTag(c4d.Tpointselection)
+                                    selp[c4d.ID_BASELIST_NAME] = str(i)
+                                    bs = selp.GetBaseSelect()
+                                    for p in bmap:
+                                        bs.Select(p)
+                                    obj.InsertTag(selp)
+                    #------------------------------------------------------------------  
+
                     #Add faces  ----------------------------------------------
                     indexOffset = 0
                     faceOffset = 0
@@ -663,7 +678,6 @@ class LDDDialog(gui.GeDialog):
                     #Add material ----------------------------------------------
                     decoCount = 0
                     for part in geo.Parts:
-    
                         # decoration
                         if self.GetBool(IDC_EXPORT_TEX):
                             deco = '0'
@@ -690,6 +704,7 @@ class LDDDialog(gui.GeDialog):
                         textag[c4d.TEXTURETAG_PROJECTION] = c4d.TEXTURETAG_PROJECTION_UVW
                         obj.InsertTag(textag)
                     # -----------------------------------------------------------------
+
                     obj.InsertUnder(scenenode) 
 
                 #add Instance part
@@ -712,7 +727,7 @@ class LDDDialog(gui.GeDialog):
                     #Add material to instance ----------------------------------------------
                     decoCount = 0
                     for part in geo.Parts:
-                    	# decoration
+                        # decoration
                         if self.GetBool(IDC_EXPORT_TEX):
                             deco = '0'
                             if hasattr(pa, 'decoration') and len(geo.Parts[part].textures) > 0:
@@ -739,7 +754,7 @@ class LDDDialog(gui.GeDialog):
                         ins.InsertTag(textag)
                     #----------------------------------------------------------------------  
 
-                    ins.SetMg(pa.Bones[0].matrix * c4d.Matrix(c4d.Vector(0, 0, 0), c4d.Vector(1, 0, 0), c4d.Vector(0, 1, 0), c4d.Vector(0, 0, -1)))
+                    ins.SetMg(pa.Bones[0].matrix * FLIP)
                     ins.InsertUnder(scenenode)
 
         if self.GetBool(IDC_INSTANCES):
