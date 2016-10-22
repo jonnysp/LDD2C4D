@@ -36,6 +36,7 @@ IDC_TEXT_TEXTURE    = 1017
 IDC_BUTTON_TEXTURE  = 1018
 IDC_MAT_LINK        = 1019
 IDC_INSTANCES       = 1020
+IDC_RENDERINSTANCES = 1021
 
 # Material types
 MATERIAL_TYPE_C4D   = 5703
@@ -401,7 +402,9 @@ class LDDDialog(gui.GeDialog):
         self.GroupBorder(c4d.BORDER_GROUP_IN)
         self.GroupBorderSpace(5, 5, 5, 5)
         self.AddCheckbox(id=IDC_INSTANCES, flags=c4d.BFH_LEFT, initw=0, inith=0, name='Generate Instance Objects')
+        self.AddCheckbox(id=IDC_RENDERINSTANCES, flags=c4d.BFH_RIGHT|c4d.BFH_SCALEFIT, initw=0, inith=0, name='Render Instances')
         self.SetBool(IDC_INSTANCES, True)
+        self.SetBool(IDC_RENDERINSTANCES, True)
         self.GroupEnd()
 
         self.GroupBegin(id=0, flags=c4d.BFH_SCALEFIT, cols=20, rows=1, title="Scale", groupflags=0)
@@ -446,6 +449,7 @@ class LDDDialog(gui.GeDialog):
             self.ChecktexturePath()
         elif id == IDC_EXPORT_TEX:
             self.ChecktexturePath()
+        elif id == IDC_INSTANCES:
         return True
     
     @staticmethod
@@ -713,7 +717,7 @@ class LDDDialog(gui.GeDialog):
                     pa.Bones[0].matrix.off *= self.GetInt32(IDC_SLIDER_SCALE)
 
                     ins = c4d.BaseObject(c4d.Oinstance)
-                    ins[c4d.INSTANCEOBJECT_RENDERINSTANCE] = True
+                    ins[c4d.INSTANCEOBJECT_RENDERINSTANCE] = self.GetBool(IDC_RENDERINSTANCES)
 
                     if pa.designID in instancescache:
                         ins[c4d.INSTANCEOBJECT_LINK] = instancescache[pa.designID]
