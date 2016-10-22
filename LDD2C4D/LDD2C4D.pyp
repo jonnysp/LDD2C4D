@@ -450,6 +450,7 @@ class LDDDialog(gui.GeDialog):
         elif id == IDC_EXPORT_TEX:
             self.ChecktexturePath()
         elif id == IDC_INSTANCES:
+            self.Enable(IDC_RENDERINSTANCES, self.GetBool(IDC_INSTANCES))
         return True
     
     @staticmethod
