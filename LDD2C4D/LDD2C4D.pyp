@@ -616,7 +616,32 @@ class LDDDialog(gui.GeDialog):
                                     if (geo.Parts[part].bonemap[k] == i):
                                         geo.Parts[part].normals[k] = FLIP.MulV(n)
                     # -----------------------------------------------------------------
-    
+
+                    #calc center--------------------------------------------------------
+                    if len(pa.Bones) > 1 or self.GetBool(IDC_INSTANCES) == False:
+
+                        min_x = max_x = geo.Parts[0].positions[0].x
+                        min_y = max_y = geo.Parts[0].positions[0].y
+                        min_z = max_z = geo.Parts[0].positions[0].z
+                        for part in geo.Parts:
+                            for j, p in enumerate(geo.Parts[part].positions):
+                                if p.x > max_x: max_x = p.x
+                                if p.x < min_x: min_x = p.x
+                                if p.y > max_y: max_y = p.y
+                                if p.y < min_y: min_y = p.y
+                                if p.z > max_z: max_z = p.z
+                                if p.z < min_z: min_z = p.z
+
+                        center = c4d.Vector(max_x + min_x , max_y + min_y , max_z + min_z) * 0.5
+
+                        #apply center
+                        for part in geo.Parts:
+                            for j, p in enumerate(geo.Parts[part].positions):
+                                geo.Parts[part].positions[j] -= center
+
+                        obj.SetAbsPos(center)
+                    # -----------------------------------------------------------------
+
                     #Add Points ----------------------------------------------------------
                     points = []
                     for part in geo.Parts:
