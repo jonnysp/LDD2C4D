@@ -305,19 +305,24 @@ class LIFReader(object):
         self.filelist = {}
         self.initok = False
         self.location = file
-        self.filehandle = open(self.location, "rb")
-        self.filehandle.seek(0, 0)
         self.dbinfo = None
-
-        if self.filehandle.read(4) == "LIFF":
-            self.parse(prefix='', offset=self.readInt(offset=72) + 64)
-            if '/Materials.xml' in self.filelist and '/info.xml' in self.filelist:
-                self.dbinfo = DBinfo(data=self.filelist['/info.xml'].read())
-                print "Database OK."
-                self.initok = True
+        try:
+            self.filehandle = open(self.location, "rb")
+            self.filehandle.seek(0, 0)
+        except Exception as e:
+        	gui.MessageDialog(e, c4d.GEMB_OK)
+        	self.initok = False
+        	return
         else:
-            print "Database FAIL"
-            self.initok = False
+            if self.filehandle.read(4) == "LIFF":
+                self.parse(prefix='', offset=self.readInt(offset=72) + 64)
+                if '/Materials.xml' in self.filelist and '/info.xml' in self.filelist:
+                    self.dbinfo = DBinfo(data=self.filelist['/info.xml'].read())
+                    print "Database OK."
+                    self.initok = True
+            else:
+                print "Database FAIL"
+                self.initok = False
 
     def parse(self, prefix='', offset=0):
         if prefix == '':
