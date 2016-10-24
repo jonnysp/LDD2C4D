@@ -310,9 +310,9 @@ class LIFReader(object):
             self.filehandle = open(self.location, "rb")
             self.filehandle.seek(0, 0)
         except Exception as e:
-        	gui.MessageDialog(e, c4d.GEMB_OK)
-        	self.initok = False
-        	return
+            gui.MessageDialog(e, c4d.GEMB_OK)
+            self.initok = False
+            return
         else:
             if self.filehandle.read(4) == "LIFF":
                 self.parse(prefix='', offset=self.readInt(offset=72) + 64)
