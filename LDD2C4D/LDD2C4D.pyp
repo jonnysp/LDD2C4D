@@ -56,7 +56,8 @@ class Bone(object):
 class Part(object):
     def __init__(self, node):
         self.Name = ''
-        self.materials = node.attributes['materials'].value.split(',')
+        self.designID = node.attributes['designID'].value
+        self.materials = map(str,node.attributes['materials'].value.split(',')) 
         lastm = '0'
         for i, m in enumerate(self.materials):
             if (m == '0'):
@@ -64,8 +65,7 @@ class Part(object):
             else:
                 lastm = m
         if node.hasAttribute('decoration'):
-            self.decoration = node.attributes['decoration'].value.split(",")
-        self.designID = node.attributes['designID'].value
+            self.decoration = map(str,node.attributes['decoration'].value.split(","))
         self.Bones = []
         for bonenode in node.getElementsByTagName('Bone'):
             self.Bones.append(Bone(node=bonenode))
@@ -167,7 +167,6 @@ class Geometrie(object):
         self.Parts = {}
         self.Partname = ''
         GeometrieLocation = '{0}{1}{2}'.format(GEOMETRIEPATH, self.designID,'.g')
-        
         GeometrieCount = 0
         while str(GeometrieLocation) in database.filelist:
             self.Parts[GeometrieCount] = GeometrieReader(data=database.filelist[GeometrieLocation].read())
@@ -176,7 +175,6 @@ class Geometrie(object):
 
         primitive = Primitive(data = database.filelist[PRIMITIVEPATH + self.designID + '.xml'].read())
         self.Partname = primitive.designname
-
         # preflex
         if not (primitive.Flex is None):
             for part in self.Parts:
@@ -238,9 +236,8 @@ class Bone2(object):
         self.tx = float(node.attributes['tx'].value)
         self.ty = float(node.attributes['ty'].value)
         self.tz = float(node.attributes['tz'].value)
-
         self.matrix = c4d.utils.RotAxisToMatrix(c4d.Vector(self.ax,self.ay,self.az), utils.Rad(self.angle))
-        self.matrix.off = -self.matrix.MulV(c4d.Vector(self.tx, self.ty, self.tz))
+        self.matrix.off = -self.matrix.Mul(c4d.Vector(self.tx, self.ty, self.tz))
 
 class LOCReader(object):
     def __init__(self, data):
@@ -371,8 +368,7 @@ class LIFReader(object):
 class DBinfo(object):
     def __init__(self, data):
         xml = minidom.parseString(data)
-        bricksnode = xml.getElementsByTagName('Bricks')[0]
-        self.Version = bricksnode.attributes['version'].value
+        self.Version = xml.getElementsByTagName('Bricks')[0].attributes['version'].value
         print 'Database Brickversion: ' + str(self.Version)
 
 class LDDDialog(gui.GeDialog):
