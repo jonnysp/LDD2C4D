@@ -268,8 +268,9 @@ class Materials(object):
     def __init__(self, data):
         self.Materials = {}
         xml = minidom.parseString(data)
-        for mat in xml.getElementsByTagName('Material'):
-            self.Materials[mat.attributes["MatID"].value] = Material(r=int(mat.attributes["Red"].value), g=int(mat.attributes["Green"].value), b=int(mat.attributes["Blue"].value), a=int(mat.attributes["Alpha"].value), mtype=str(mat.attributes["MaterialType"].value))
+        for node in xml.firstChild.childNodes: 
+            if node.nodeName == 'Material':
+                self.Materials[node.getAttribute('MatID')] = Material(r=int(node.getAttribute('Red')), g=int(node.getAttribute('Green')), b=int(node.getAttribute('Blue')), a=int(node.getAttribute('Alpha')), mtype=str(node.getAttribute('MaterialType')))
 
     def setLOC(self, loc):
         for key in loc.values:
