@@ -168,12 +168,12 @@ class GeometrieReader(object):
                     self.bonemap[i] = int(struct.unpack('i', bonearray[boneoffset:boneoffset + 4])[0]) 
 
     def readInt(self):
-        ret = struct.unpack('i', self.data[self.offset:self.offset + 4])[0]
+        ret = struct.unpack_from('i', self.data, self.offset)[0]
         self.offset += 4
         return int(ret)
 
     def readFloat(self):
-        ret = struct.unpack('f', self.data[self.offset:self.offset + 4])[0]
+        ret = struct.unpack_from('f', self.data, self.offset)[0]
         self.offset += 4
         return float(ret)
 
@@ -362,11 +362,11 @@ class LIFReader(object):
 
     def readInt(self, offset=0):
         self.filehandle.seek(offset, 0)
-        return (ord(self.filehandle.read(1)) * 16777216) + (ord(self.filehandle.read(1)) * 65536) + (ord(self.filehandle.read(1)) * 256) + ord(self.filehandle.read(1))
+        return int(self.filehandle.read(4).encode('hex'), 16)
 
     def readShort(self, offset=0):
         self.filehandle.seek(offset, 0)
-        return (ord(self.filehandle.read(1)) * 256) + ord(self.filehandle.read(1))
+        return int(self.filehandle.read(2).encode('hex'), 8)
 
 class DBinfo(object):
     def __init__(self, data):
