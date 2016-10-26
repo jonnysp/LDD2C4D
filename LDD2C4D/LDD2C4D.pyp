@@ -50,14 +50,14 @@ FLIP = c4d.Matrix(c4d.Vector(0, 0, 0), c4d.Vector(1, 0, 0), c4d.Vector(0, 1, 0),
 
 class Bone(object):
     def __init__(self, node):
-        (a, b, c, d, e, f, g, h, i, x, y, z) = map(float, node.attributes['transformation'].value.split(","))
+        (a, b, c, d, e, f, g, h, i, x, y, z) = map(float, node.getAttribute('transformation').split(','))
         self.matrix = FLIP * c4d.Matrix(c4d.Vector(x, y, z), c4d.Vector(a, b, c), c4d.Vector(d, e, f), c4d.Vector(g, h, i)) 
 
 class Part(object):
     def __init__(self, node):
         self.Name = ''
-        self.designID = node.attributes['designID'].value
-        self.materials = map(str,node.attributes['materials'].value.split(',')) 
+        self.designID = node.getAttribute('designID')
+        self.materials = map(str, node.getAttribute('materials').split(',')) 
         lastm = '0'
         for i, m in enumerate(self.materials):
             if (m == '0'):
@@ -65,29 +65,34 @@ class Part(object):
             else:
                 lastm = m
         if node.hasAttribute('decoration'):
-            self.decoration = map(str,node.attributes['decoration'].value.split(","))
+            self.decoration = map(str,node.getAttribute('decoration').split(','))
         self.Bones = []
-        for bonenode in node.getElementsByTagName('Bone'):
-            self.Bones.append(Bone(node=bonenode))
+        for childnode in node.childNodes:
+            if childnode.nodeName == 'Bone':
+                self.Bones.append(Bone(node=childnode)) 
 
 class Brick(object):
     def __init__(self, node):
-        self.designID = node.attributes['designID'].value
+        self.designID = node.getAttribute('designID')
         self.Parts = []
-        for partnode in node.getElementsByTagName('Part'):
-            self.Parts.append(Part(node=partnode))
+        for childnode in node.childNodes:
+            if childnode.nodeName == 'Part':
+                self.Parts.append(Part(node=childnode))
 
 class SceneCamera(object):
     def __init__(self, node):
-        (a, b, c, d, e, f, g, h, i, x, y, z) = map(float, node.attributes['transformation'].value.split(","))
+        (a, b, c, d, e, f, g, h, i, x, y, z) = map(float, node.getAttribute('transformation').split(','))
         self.matrix = c4d.Matrix(c4d.Vector(x, y, z), c4d.Vector(a, b, c), c4d.Vector(d, e, f),c4d.Vector(g, h, i))
-        self.fieldOfView = float(node.attributes['fieldOfView'].value)
-        self.distance = float(node.attributes['distance'].value)
+        self.fieldOfView = float(node.getAttribute('fieldOfView'))
+        self.distance = float(node.getAttribute('distance'))
 
 class Scene(object):
     def __init__(self, file):
-        self.Version = None
+        self.Name = ''
+        self.Version = ''
         self.Bricks = []
+        self.Scenecamera = None
+
         data = ''
         if file.endswith('.lxfml'):
             with open(file, "rb") as file:
@@ -97,14 +102,25 @@ class Scene(object):
             data = zf.read('IMAGE100.LXFML')
         else:
             return
+
         xml = minidom.parseString(data)
-        lxfml = xml.getElementsByTagName('LXFML')[0]
-        self.Name = lxfml.attributes['name'].value
-        self.Version = lxfml.getElementsByTagName('Meta')[0].getElementsByTagName('BrickSet')[0].attributes['version'].value
-        print 'Scene "'+ self.Name + '" Brickversion: ' + str(self.Version)
-        self.Scenecamera = SceneCamera(node=lxfml.getElementsByTagName('Cameras')[0].getElementsByTagName('Camera')[0])
-        for bricknode in xml.getElementsByTagName('Brick'):
-            self.Bricks.append(Brick(node=bricknode))
+        self.Name = xml.firstChild.getAttribute('name')
+                
+        for node in xml.firstChild.childNodes: 
+            if node.nodeName == 'Meta':
+                for childnode in node.childNodes:
+                    if childnode.nodeName == 'BrickSet':
+                        self.Version = str(childnode.getAttribute('version'))
+            elif node.nodeName == 'Cameras':
+                for childnode in node.childNodes:
+                    if childnode.nodeName == 'Camera':
+                        self.Scenecamera = SceneCamera(node=childnode)
+            elif node.nodeName == 'Bricks':
+                for childnode in node.childNodes:
+                    if childnode.nodeName == 'Brick':
+                        self.Bricks.append(Brick(node=childnode))
+        
+        print 'Scene "'+ self.Name + '" Brickversion: ' + str(self.Version) 
 
 class GeometrieReader(object):
     def __init__(self, data):
@@ -220,11 +236,11 @@ class Primitive():
             if node.nodeName == 'Flex': 
                 for node in node.childNodes:
                     if node.nodeName == 'Bone':
-                        self.Bones.append(Bone2(boneId=int(node.getAttribute("boneId")), angle=float(node.getAttribute("angle")), ax=float(node.getAttribute("ax")), ay=float(node.getAttribute("ay")), az=float(node.getAttribute("az")), tx=float(node.getAttribute("tx")), ty=float(node.getAttribute("ty")), tz=float(node.getAttribute("tz"))))
-            if node.nodeName == 'Annotations':
+                        self.Bones.append(Bone2(boneId=int(node.getAttribute('boneId')), angle=float(node.getAttribute('angle')), ax=float(node.getAttribute('ax')), ay=float(node.getAttribute('ay')), az=float(node.getAttribute('az')), tx=float(node.getAttribute('tx')), ty=float(node.getAttribute('ty')), tz=float(node.getAttribute('tz'))))
+            elif node.nodeName == 'Annotations':
                 for childnode in node.childNodes:
                     if childnode.nodeName == 'Annotation' and childnode.hasAttribute('designname'):
-                        self.designname = childnode.getAttribute("designname")
+                        self.designname = childnode.getAttribute('designname')
 
 class LOCReader(object):
     def __init__(self, data):
