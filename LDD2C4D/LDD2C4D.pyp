@@ -176,18 +176,17 @@ class Geometrie(object):
         primitive = Primitive(data = database.filelist[PRIMITIVEPATH + self.designID + '.xml'].read())
         self.Partname = primitive.designname
         # preflex
-        if not (primitive.Flex is None):
-            for part in self.Parts:
-                # transform
-                for i, b in enumerate(primitive.Flex.Bones):
-                    # positions
-                    for j, p in enumerate(self.Parts[part].positions):
-                        if (self.Parts[part].bonemap[j] == i):
-                            self.Parts[part].positions[j] = b.matrix.Mul(p)
-                    # normals
-                    for k, n in enumerate(self.Parts[part].normals):
-                        if (self.Parts[part].bonemap[k] == i):
-                            self.Parts[part].normals[k] = b.matrix.MulV(n)
+        for part in self.Parts:
+            # transform
+            for i, b in enumerate(primitive.Bones):
+                # positions
+                for j, p in enumerate(self.Parts[part].positions):
+                    if (self.Parts[part].bonemap[j] == i):
+                        self.Parts[part].positions[j] = b.matrix.Mul(p)
+                # normals
+                for k, n in enumerate(self.Parts[part].normals):
+                    if (self.Parts[part].bonemap[k] == i):
+                        self.Parts[part].normals[k] = b.matrix.MulV(n)
 
     def valuecount(self):
         count = 0
@@ -207,37 +206,25 @@ class Geometrie(object):
             count += len(self.Parts[part].textures)
         return count
 
-class Primitive(object):
-    def __init__(self, data):
+class Bone2():
+    def __init__(self,boneId=0, angle=0, ax=0, ay=1, az=0, tx=0, ty=0, tz=0):
+        self.matrix = c4d.utils.RotAxisToMatrix(c4d.Vector(ax,ay,az), utils.Rad(angle))
+        self.matrix.off = -self.matrix.Mul(c4d.Vector(tx, ty, tz))
+
+class Primitive():
+    def __init__(self,data):
         self.designname = ''
-        self.Flex = None
-        xml = minidom.parseString(data)
-        for Annotations in xml.getElementsByTagName('Annotations'):
-            for Annotation in Annotations.getElementsByTagName('Annotation'):
-                if Annotation.hasAttribute('designname'):
-                    self.designname = Annotation.attributes['designname'].value
-        if (xml.getElementsByTagName('Flex')):
-            for flex in xml.getElementsByTagName('Flex'):
-                self.Flex = Flex(node=flex)
-
-class Flex(object):
-    def __init__(self, node):
         self.Bones = []
-        for bone2node in node.getElementsByTagName('Bone'):
-            self.Bones.append(Bone2(node=bone2node))
-
-class Bone2(object):
-    def __init__(self, node):
-        self.boneId = int(node.attributes['boneId'].value)
-        self.angle = float(node.attributes['angle'].value)
-        self.ax = float(node.attributes['ax'].value)
-        self.ay = float(node.attributes['ay'].value)
-        self.az = float(node.attributes['az'].value)
-        self.tx = float(node.attributes['tx'].value)
-        self.ty = float(node.attributes['ty'].value)
-        self.tz = float(node.attributes['tz'].value)
-        self.matrix = c4d.utils.RotAxisToMatrix(c4d.Vector(self.ax,self.ay,self.az), utils.Rad(self.angle))
-        self.matrix.off = -self.matrix.Mul(c4d.Vector(self.tx, self.ty, self.tz))
+        xml = minidom.parseString(data)
+        for node in xml.firstChild.childNodes: 
+            if node.nodeName == 'Flex': 
+                for node in node.childNodes:
+                    if node.nodeName == 'Bone':
+                        self.Bones.append(Bone2(boneId=int(node.getAttribute("boneId")), angle=float(node.getAttribute("angle")), ax=float(node.getAttribute("ax")), ay=float(node.getAttribute("ay")), az=float(node.getAttribute("az")), tx=float(node.getAttribute("tx")), ty=float(node.getAttribute("ty")), tz=float(node.getAttribute("tz"))))
+            if node.nodeName == 'Annotations':
+                for childnode in node.childNodes:
+                    if childnode.nodeName == 'Annotation' and childnode.hasAttribute('designname'):
+                        self.designname = childnode.getAttribute("designname")
 
 class LOCReader(object):
     def __init__(self, data):
