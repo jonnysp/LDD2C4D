@@ -26,17 +26,18 @@ DATABASE = 1000
 TEXTUR = 1001
 
 # Element IDs
-IDM_ABOUT           = 1011
-IDC_EXPORT_TEX      = 1012
-IDC_TEXT_DATABASE   = 1013 
+IDM_ABOUT = 1011
+IDC_EXPORT_TEX = 1012
+IDC_TEXT_DATABASE = 1013
 IDC_BUTTON_DATABASE = 1014
-IDC_BUTTON_LOAD     = 1015
-IDC_SLIDER_SCALE    = 1016
-IDC_TEXT_TEXTURE    = 1017
-IDC_BUTTON_TEXTURE  = 1018
-IDC_MAT_LINK        = 1019
-IDC_INSTANCES       = 1020
-IDC_RENDERINSTANCES = 1021
+IDC_BUTTON_LOAD = 1015
+IDC_SLIDER_SCALE = 1016
+IDC_TEXT_TEXTURE = 1017
+IDC_TEXT_MAT_TEMPLATE = 1018
+IDC_BUTTON_TEXTURE = 1019
+IDC_MAT_LINK = 1020 
+IDC_INSTANCES = 1021
+IDC_RENDERINSTANCES = 1022
 
 # Material types
 MATERIAL_TYPE_C4D   = 5703
@@ -432,7 +433,7 @@ class LDDDialog(gui.GeDialog):
         self.GroupBegin(id=0, flags=c4d.BFH_SCALEFIT, cols=20, rows=1, title='Material Template', groupflags=0)
         self.GroupBorder(c4d.BORDER_GROUP_IN)
         self.GroupBorderSpace(5, 5, 5, 5)
-        self.AddStaticText(id=1011, flags=c4d.BFH_LEFT, initw=0, inith=0, name="Please drag material here:")
+        self.AddStaticText(id=IDC_TEXT_MAT_TEMPLATE, flags=c4d.BFH_LEFT, initw=0, inith=0, name="Please drag material here:")
         self.linkTemplate = self.AddCustomGui(id=IDC_MAT_LINK, pluginid=c4d.CUSTOMGUI_LINKBOX, name="materialTemplate", flags=c4d.BFH_SCALEFIT, minw=0, minh=0)
         self.GroupEnd()
 
