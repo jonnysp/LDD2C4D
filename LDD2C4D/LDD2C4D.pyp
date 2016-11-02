@@ -339,7 +339,7 @@ class LIFReader(object):
             entryType = self.readShort(offset=offset)
             offset += 6
 
-            entryName = '/';
+            entryName = '{0}{1}'.format(prefix,'/');
             self.filehandle.seek(offset + 1, 0)
             t = ord(self.filehandle.read(1))
 
@@ -353,10 +353,10 @@ class LIFReader(object):
             self.packedFilesOffset += 20
 
             if entryType == 1:
-                offset = self.parse(prefix='{0}{1}'.format(prefix,entryName), offset=offset)
+                offset = self.parse(prefix=entryName, offset=offset)
             elif entryType == 2:
                 fileSize = self.readInt(offset=offset) - 20
-                self.filelist['{0}{1}'.format(prefix,entryName)] = LIFFile(name='{0}{1}'.format(prefix,entryName), offset=self.packedFilesOffset, size=fileSize, handle=self.filehandle)
+                self.filelist[entryName] = LIFFile(name=entryName, offset=self.packedFilesOffset, size=fileSize, handle=self.filehandle)
                 offset += 24
                 self.packedFilesOffset += fileSize
 
