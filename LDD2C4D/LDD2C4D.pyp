@@ -42,8 +42,8 @@ IDC_RENDERINSTANCES = 1022
 # Material types
 MATERIAL_TYPE_C4D   = 5703
 
-GEOMETRIEPATH = '/Primitives/LOD0/'
 PRIMITIVEPATH = '/Primitives/'
+GEOMETRIEPATH = PRIMITIVEPATH + 'LOD0/'
 DECORATIONPATH = '/Decorations/'
 MATERIALNAMESPATH = '/MaterialNames/'
 
@@ -162,11 +162,14 @@ class GeometrieReader(object):
             self.bonemap = [0] * self.valueCount
 
             if (bonelength > self.valueCount) or (bonelength > self.faceCount):
-                bonearray = self.data[self.offset:self.offset + bonelength]
+                datastart = self.offset
                 self.offset += bonelength
                 for i in range(0, self.valueCount):
                     boneoffset = self.readInt() + 4
-                    self.bonemap[i] = int(struct.unpack('i', bonearray[boneoffset:boneoffset + 4])[0]) 
+                    self.bonemap[i] = self.read_Int(datastart + boneoffset)
+    
+    def read_Int(self,_offset):
+        return struct.unpack_from('i', self.data, _offset)[0]
 
     def readInt(self):
         ret = struct.unpack_from('i', self.data, self.offset)[0]
@@ -224,7 +227,7 @@ class Geometrie(object):
         return count
 
 class Bone2():
-    def __init__(self,boneId=0, angle=0, ax=0, ay=1, az=0, tx=0, ty=0, tz=0):
+    def __init__(self,boneId=0, angle=0, ax=0, ay=0, az=0, tx=0, ty=0, tz=0):
         self.matrix = c4d.utils.RotAxisToMatrix(c4d.Vector(ax,ay,az), utils.Rad(angle))
         self.matrix.off = -self.matrix.Mul(c4d.Vector(tx, ty, tz))
 
