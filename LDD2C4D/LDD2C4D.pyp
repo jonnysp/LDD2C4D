@@ -56,7 +56,6 @@ class Bone(object):
 
 class Part(object):
     def __init__(self, node):
-        self.Name = ''
         self.designID = node.getAttribute('designID')
         self.materials = map(str, node.getAttribute('materials').split(',')) 
         lastm = '0'
