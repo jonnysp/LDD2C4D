@@ -384,7 +384,6 @@ class LDDDialog(gui.GeDialog):
     texturestring = None
     textureexport = False
     allMaterials = None
-    Scenefile = None
 
     def CreateLayout(self):
         self.SetTitle("LDD2C4D - " + VERSION)
@@ -541,17 +540,17 @@ class LDDDialog(gui.GeDialog):
         return True
 
     def Load(self):
-        self.Scenefile = c4d.storage.LoadDialog(type=c4d.FILESELECTTYPE_ANYTHING, title="select LDD File (lxf or lxfml)", force_suffix="lxf|lxfml")
-        if not (self.Scenefile is None):
-            if self.Scenefile[-4:].lower() not in (".lxf", "xfml"):
+        Scenefile = c4d.storage.LoadDialog(type=c4d.FILESELECTTYPE_ANYTHING, title="select LDD File (lxf or lxfml)", force_suffix="lxf|lxfml")
+        if not (Scenefile is None):
+            if Scenefile[-4:].lower() not in (".lxf", "xfml"):
                 gui.MessageDialog('Invalid File Type Must be a .lxf or .lxfml', c4d.GEMB_OK)
                 return
         else:
             return
 
-        self.Scene = Scene(file=self.Scenefile)
+        scene = Scene(file=Scenefile)
 
-        if not self.database.dbinfo.Version == self.Scene.Version:
+        if not self.database.dbinfo.Version == scene.Version:
             if gui.QuestionDialog("The scene version differs from the database version, which can lead to errors. Continue?") == False:
                 return
 
@@ -560,7 +559,7 @@ class LDDDialog(gui.GeDialog):
         doc.StartUndo()
 
         scenenode = c4d.BaseObject(c4d.Onull)
-        scenenode.SetName(self.Scene.Name)
+        scenenode.SetName(scene.Name)
 
         instancnode = c4d.BaseObject(c4d.Onull)
         instancnode.SetName('InstanceParts')
@@ -571,9 +570,9 @@ class LDDDialog(gui.GeDialog):
         instancescache = {}
 
         statuscount = 0
-        allcount = len(self.Scene.Bricks)
+        allcount = len(scene.Bricks)
 
-        for bri in self.Scene.Bricks:
+        for bri in scene.Bricks:
 
             statuscount += 1
             c4d.StatusSetBar(statuscount * 100 / allcount)
