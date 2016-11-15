@@ -561,13 +561,13 @@ class LDDDialog(gui.GeDialog):
         scenenode = c4d.BaseObject(c4d.Onull)
         scenenode.SetName(scene.Name)
 
-        instancnode = c4d.BaseObject(c4d.Onull)
-        instancnode.SetName('InstanceParts')
-        instancnode[c4d.ID_BASEOBJECT_VISIBILITY_EDITOR] = True
-        instancnode[c4d.ID_BASEOBJECT_VISIBILITY_RENDER] = True
+        instancenode = c4d.BaseObject(c4d.Onull)
+        instancenode.SetName('InstanceParts')
+        instancenode[c4d.ID_BASEOBJECT_VISIBILITY_EDITOR] = True
+        instancenode[c4d.ID_BASEOBJECT_VISIBILITY_RENDER] = True
 
         geometriecache = {}
-        instancescache = {}
+        instancecache = {}
 
         statuscount = 0
         allcount = len(scene.Bricks)
@@ -594,8 +594,8 @@ class LDDDialog(gui.GeDialog):
                 obj = c4d.PolygonObject(geo.valuecount(), geo.facecount())
                 obj.SetName(geo.Partname)
     
-                #if not in instancescache fill PolygonObject
-                if pa.designID not in instancescache:
+                #if not in instancecache fill PolygonObject
+                if pa.designID not in instancecache:
 
                     # transform -------------------------------------------------------
                     for part in geo.Parts:
@@ -612,11 +612,9 @@ class LDDDialog(gui.GeDialog):
                         else:
                             for j, p in enumerate(geo.Parts[part].positions):
                                 geo.Parts[part].positions[j] = FLIP.MulV(p) * self.GetInt32(IDC_SLIDER_SCALE)
-                            
-                            for i, b in enumerate(pa.Bones):
-                                for k, n in enumerate(geo.Parts[part].normals):
-                                    if (geo.Parts[part].bonemap[k] == i):
-                                        geo.Parts[part].normals[k] = FLIP.MulV(n)
+
+                            for k, n in enumerate(geo.Parts[part].normals):
+                                geo.Parts[part].normals[k] = FLIP.MulV(n)
                     # -----------------------------------------------------------------
 
                     #calc center--------------------------------------------------------
@@ -706,8 +704,6 @@ class LDDDialog(gui.GeDialog):
                     # -----------------------------------------------------------------
 
                     obj.SetPhong(True, True, c4d.utils.Rad(23))
-                    obj.Message(c4d.MSG_UPDATE)
-
 
                 #if flex add part without Instance
                 if len(pa.Bones) > 1 or self.GetBool(IDC_INSTANCES) == False:
@@ -742,8 +738,9 @@ class LDDDialog(gui.GeDialog):
                         obj.InsertTag(textag)
                     # -----------------------------------------------------------------
 
-                    obj.InsertUnder(scenenode) 
-
+                    obj.Message(c4d.MSG_UPDATE) 
+                    obj.InsertUnder(scenenode)
+                    
                 #add Instance part
                 else:
 
@@ -751,15 +748,14 @@ class LDDDialog(gui.GeDialog):
 
                     ins = c4d.BaseObject(c4d.Oinstance)
                     ins[c4d.INSTANCEOBJECT_RENDERINSTANCE] = self.GetBool(IDC_RENDERINSTANCES)
-
-                    if pa.designID in instancescache:
-                        ins[c4d.INSTANCEOBJECT_LINK] = instancescache[pa.designID]
-                        ins.SetName(instancescache[pa.designID].GetName())
+                    ins.SetName(geo.Partname)
+                    
+                    if pa.designID in instancecache:
+                        ins[c4d.INSTANCEOBJECT_LINK] = instancecache[pa.designID]
                     else:
-                        instancescache[pa.designID] = obj
-                        obj.InsertUnder(instancnode)
+                        instancecache[pa.designID] = obj
+                        obj.InsertUnder(instancenode)
                         ins[c4d.INSTANCEOBJECT_LINK] = obj
-                        ins.SetName(obj.GetName())
 
                     #Add material to instance ----------------------------------------------
                     decoCount = 0
@@ -792,10 +788,12 @@ class LDDDialog(gui.GeDialog):
                     #----------------------------------------------------------------------  
 
                     ins.SetMg(pa.Bones[0].matrix * FLIP)
+                    ins.Message(c4d.MSG_UPDATE) 
                     ins.InsertUnder(scenenode)
 
         if self.GetBool(IDC_INSTANCES):
-            instancnode.InsertUnder(scenenode)  
+            instancenode.Message(c4d.MSG_UPDATE)
+            instancenode.InsertUnder(scenenode)  
 
         scenenode.Message(c4d.MSG_UPDATE)
         doc.InsertObject(scenenode)
