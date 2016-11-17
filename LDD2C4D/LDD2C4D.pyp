@@ -131,6 +131,7 @@ class GeometrieReader(object):
         self.textures = []
         self.faces = []
         self.bonemap = {}
+        self.texCount = 0 
 
         if self.readInt() == 1111961649:
             self.valueCount = self.readInt()
@@ -145,6 +146,7 @@ class GeometrieReader(object):
                  self.normals.append(c4d.Vector(self.readFloat(), self.readFloat(), self.readFloat()))
 
             if (options & 3) == 3:
+                self.texCount = self.valueCount
                 for i in range(0, self.valueCount):
                     self.textures.append(c4d.Vector(self.readFloat(), self.readFloat(), 0))
 
@@ -222,7 +224,7 @@ class Geometrie(object):
     def texcount(self):
         count = 0
         for part in self.Parts:
-            count += len(self.Parts[part].textures)
+            count += self.Parts[part].texCount
         return count
 
 class Bone2():
@@ -754,6 +756,7 @@ class LDDDialog(gui.GeDialog):
                         ins[c4d.INSTANCEOBJECT_LINK] = instancecache[pa.designID]
                     else:
                         instancecache[pa.designID] = obj
+                        obj.Message(c4d.MSG_UPDATE) 
                         obj.InsertUnder(instancenode)
                         ins[c4d.INSTANCEOBJECT_LINK] = obj
 
