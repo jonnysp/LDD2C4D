@@ -542,10 +542,10 @@ class LDDDialog(gui.GeDialog):
         return True
 
     def Load(self):
-        Scenefile = c4d.storage.LoadDialog(type=c4d.FILESELECTTYPE_ANYTHING, title="select LDD File (lxf or lxfml)", force_suffix="lxf|lxfml")
+        Scenefile = c4d.storage.LoadDialog(type=c4d.FILESELECTTYPE_ANYTHING, title="Select LDD File (lxf or lxfml)", force_suffix="lxf|lxfml")
         if not (Scenefile is None):
             if Scenefile[-4:].lower() not in (".lxf", "xfml"):
-                gui.MessageDialog('Invalid File Type Must be a .lxf or .lxfml', c4d.GEMB_OK)
+                gui.MessageDialog('Invalid File Type. Must be a .lxf or .lxfml', c4d.GEMB_OK)
                 return
         else:
             return
@@ -553,7 +553,7 @@ class LDDDialog(gui.GeDialog):
         scene = Scene(file=Scenefile)
 
         if not self.database.dbinfo.Version == scene.Version:
-            if gui.QuestionDialog("The scene version differs from the database version, which can lead to errors. Continue?") == False:
+            if gui.QuestionDialog("The scene version differs from the database version, which can cause errors. Continue?") == False:
                 return
 
         start_time = time.time()
