@@ -10,16 +10,16 @@ from xml.dom import minidom
 PLUGIN_ID = 1038148
 VERSION = '1.0.3'
 
-print "- - - - - - - - - - - -"
-print "           _           "
-print "          [_]          "
-print "       / |   | \       "
-print "      () '---'  C      "
-print "        |  |  |        "
-print "        [=|=]          "
-print "                       "
-print "LDD2C4D - " + VERSION
-print "- - - - - - - - - - - -"
+print("- - - - - - - - - - - -")
+print("           _           ")
+print("          [_]          ")
+print("       / |   | \       ")
+print("      () '---'  C      ")
+print("        |  |  |        ")
+print("        [=|=]          ")
+print("                       ")
+print("LDD2C4D - " + VERSION)
+print("- - - - - - - - - - - -")
 
 # container ids
 DATABASE = 1000
@@ -120,7 +120,7 @@ class Scene(object):
                     if childnode.nodeName == 'Brick':
                         self.Bricks.append(Brick(node=childnode))
         
-        print 'Scene "'+ self.Name + '" Brickversion: ' + str(self.Version) 
+        print('Scene "'+ self.Name + '" Brickversion: ' + str(self.Version))
 
 class GeometrieReader(object):
     def __init__(self, data):
@@ -324,10 +324,10 @@ class LIFReader(object):
                 self.parse(prefix='', offset=self.readInt(offset=72) + 64)
                 if '/Materials.xml' in self.filelist and '/info.xml' in self.filelist:
                     self.dbinfo = DBinfo(data=self.filelist['/info.xml'].read())
-                    print "Database OK."
+                    print("Database OK.")
                     self.initok = True
             else:
-                print "Database FAIL"
+                print("Database FAIL")
                 self.initok = False
 
     def parse(self, prefix='', offset=0):
@@ -378,7 +378,7 @@ class DBinfo(object):
     def __init__(self, data):
         xml = minidom.parseString(data)
         self.Version = xml.getElementsByTagName('Bricks')[0].attributes['version'].value
-        print 'Database Brickversion: ' + str(self.Version)
+        print('Database Brickversion: ' + str(self.Version))
 
 class LDDDialog(gui.GeDialog):
     LDDData = None
@@ -819,7 +819,7 @@ class LDDDialog(gui.GeDialog):
             if (m is None):
                 
                 if self.linkTemplate.GetLink() == None:
-                    m = c4d.BaseMaterial(c4d.Mmaterial)
+                    m = c4d.Material(c4d.Mmaterial)
                 else:
                     m = self.linkTemplate.GetLink().GetClone()
 
@@ -844,27 +844,46 @@ class LDDDialog(gui.GeDialog):
             return m
 
     def buildMaterial(self, doc, lddmat):
+        #print(lddmat.mattype)
         m = doc.SearchMaterial(str(lddmat.name))
         if (m is None):
             if self.linkTemplate.GetLink() == None:
-                m = c4d.BaseMaterial(c4d.Mmaterial)
+                m = c4d.Material(c4d.Mmaterial)
             else:
                 m = self.linkTemplate.GetLink().GetClone()
              
             m[c4d.ID_BASELIST_NAME] = str(lddmat.name)
 
             if (m.CheckType(MATERIAL_TYPE_C4D)):
-                m[c4d.MATERIAL_COLOR_COLOR] = c4d.Vector(lddmat.r / 255, lddmat.g / 255, lddmat.b / 255) 
 
-                if lddmat.a < 255:
-                    m[c4d.MATERIAL_USE_COLOR] = False
-                    m[c4d.MATERIAL_USE_TRANSPARENCY] = True
-                    m[c4d.MATERIAL_TRANSPARENCY_BRIGHTNESS] = 1  # lddmat.a / 255
-                    m[c4d.MATERIAL_TRANSPARENCY_REFRACTION] = 1.575
-                    m[c4d.MATERIAL_TRANSPARENCY_COLOR] = c4d.Vector(lddmat.r / 255, lddmat.g / 255, lddmat.b / 255)
-                else:
-                    m[c4d.MATERIAL_USE_COLOR] = True
+                if lddmat.mattype == 'shinyPlastic':
+
+                    m[c4d.MATERIAL_COLOR_COLOR] = c4d.Vector(lddmat.r / 255, lddmat.g / 255, lddmat.b / 255) 
+
+                    if lddmat.a < 255:
+                        m[c4d.MATERIAL_USE_COLOR] = False
+                        m[c4d.MATERIAL_USE_TRANSPARENCY] = True
+                        m[c4d.MATERIAL_TRANSPARENCY_BRIGHTNESS] = 1  # lddmat.a / 255
+                        m[c4d.MATERIAL_TRANSPARENCY_REFRACTION] = 1.575
+                        m[c4d.MATERIAL_TRANSPARENCY_COLOR] = c4d.Vector(lddmat.r / 255, lddmat.g / 255, lddmat.b / 255)
+                    else:
+                        m[c4d.MATERIAL_USE_COLOR] = True
             
+                    layer = m.AddReflectionLayer()
+                    layerID = layer.GetDataID()
+                    m.SetParameter(layerID + c4d.REFLECTION_LAYER_FRESNEL_MODE, c4d.REFLECTION_FRESNEL_DIELECTRIC, c4d.DESCFLAGS_SET_0)
+                    m.SetParameter(layerID + c4d.REFLECTION_LAYER_FRESNEL_PRESET, c4d.REFLECTION_FRESNEL_DIELECTRIC_PET, c4d.DESCFLAGS_SET_0)
+
+                elif lddmat.mattype == 'shinySteel':
+
+                    m[c4d.MATERIAL_COLOR_COLOR] = c4d.Vector(lddmat.r / 255, lddmat.g / 255, lddmat.b / 255) 
+                    m[c4d.MATERIAL_USE_COLOR] = True
+                    
+                    layer = m.AddReflectionLayer()
+                    layerID = layer.GetDataID()
+                    m.SetParameter(layerID + c4d.REFLECTION_LAYER_FRESNEL_MODE, c4d.REFLECTION_FRESNEL_CONDUCTOR, c4d.DESCFLAGS_SET_0)
+                    m.SetParameter(layerID + c4d.REFLECTION_LAYER_FRESNEL_METAL, c4d.REFLECTION_FRESNEL_METAL_ALUMINUM, c4d.DESCFLAGS_SET_0)
+
             doc.InsertMaterial(m)
             m.Update(True, False)
         return m
