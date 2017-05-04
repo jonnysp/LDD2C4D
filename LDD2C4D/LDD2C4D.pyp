@@ -844,13 +844,15 @@ class LDDDialog(gui.GeDialog):
             return m
 
     def buildMaterial(self, doc, lddmat):
-        #print(lddmat.mattype)
+        isTemplate = False
+
         m = doc.SearchMaterial(str(lddmat.name))
         if (m is None):
             if self.linkTemplate.GetLink() == None:
                 m = c4d.Material(c4d.Mmaterial)
             else:
                 m = self.linkTemplate.GetLink().GetClone()
+                isTemplate = True
              
             m[c4d.ID_BASELIST_NAME] = str(lddmat.name)
 
@@ -868,21 +870,23 @@ class LDDDialog(gui.GeDialog):
                         m[c4d.MATERIAL_TRANSPARENCY_COLOR] = c4d.Vector(lddmat.r / 255, lddmat.g / 255, lddmat.b / 255)
                     else:
                         m[c4d.MATERIAL_USE_COLOR] = True
-            
-                    layer = m.AddReflectionLayer()
-                    layerID = layer.GetDataID()
-                    m.SetParameter(layerID + c4d.REFLECTION_LAYER_FRESNEL_MODE, c4d.REFLECTION_FRESNEL_DIELECTRIC, c4d.DESCFLAGS_SET_0)
-                    m.SetParameter(layerID + c4d.REFLECTION_LAYER_FRESNEL_PRESET, c4d.REFLECTION_FRESNEL_DIELECTRIC_PET, c4d.DESCFLAGS_SET_0)
+                
+                    if isTemplate == False:
+                        layer = m.AddReflectionLayer()
+                        layerID = layer.GetDataID()
+                        m.SetParameter(layerID + c4d.REFLECTION_LAYER_FRESNEL_MODE, c4d.REFLECTION_FRESNEL_DIELECTRIC, c4d.DESCFLAGS_SET_0)
+                        m.SetParameter(layerID + c4d.REFLECTION_LAYER_FRESNEL_PRESET, c4d.REFLECTION_FRESNEL_DIELECTRIC_PET, c4d.DESCFLAGS_SET_0)
 
                 elif lddmat.mattype == 'shinySteel':
 
                     m[c4d.MATERIAL_COLOR_COLOR] = c4d.Vector(lddmat.r / 255, lddmat.g / 255, lddmat.b / 255) 
                     m[c4d.MATERIAL_USE_COLOR] = True
                     
-                    layer = m.AddReflectionLayer()
-                    layerID = layer.GetDataID()
-                    m.SetParameter(layerID + c4d.REFLECTION_LAYER_FRESNEL_MODE, c4d.REFLECTION_FRESNEL_CONDUCTOR, c4d.DESCFLAGS_SET_0)
-                    m.SetParameter(layerID + c4d.REFLECTION_LAYER_FRESNEL_METAL, c4d.REFLECTION_FRESNEL_METAL_ALUMINUM, c4d.DESCFLAGS_SET_0)
+                    if isTemplate == False:
+                        layer = m.AddReflectionLayer()
+                        layerID = layer.GetDataID()
+                        m.SetParameter(layerID + c4d.REFLECTION_LAYER_FRESNEL_MODE, c4d.REFLECTION_FRESNEL_CONDUCTOR, c4d.DESCFLAGS_SET_0)
+                        m.SetParameter(layerID + c4d.REFLECTION_LAYER_FRESNEL_METAL, c4d.REFLECTION_FRESNEL_METAL_ALUMINUM, c4d.DESCFLAGS_SET_0)
 
             doc.InsertMaterial(m)
             m.Update(True, False)
