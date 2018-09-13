@@ -13,7 +13,7 @@ VERSION = '1.0.3'
 print("- - - - - - - - - - - -")
 print("           _           ")
 print("          [_]          ")
-print("       / |   | \       ")
+print("       / |   | \\       ")
 print("      () '---'  C      ")
 print("        |  |  |        ")
 print("        [=|=]          ")
@@ -48,6 +48,18 @@ DECORATIONPATH = '/Decorations/'
 MATERIALNAMESPATH = '/MaterialNames/'
 
 FLIP = c4d.Matrix(c4d.Vector(0, 0, 0), c4d.Vector(1, 0, 0), c4d.Vector(0, 1, 0), c4d.Vector(0, 0, -1))
+
+CURRENTSPINN = 0
+SPINNSTRING = ['|','/','–','\\']
+
+def spinner():
+    global CURRENTSPINN,SPINNSTRING
+    if CURRENTSPINN < len(SPINNSTRING) - 1:
+        CURRENTSPINN += 1
+    else:
+        CURRENTSPINN = 0
+
+    return SPINNSTRING[CURRENTSPINN]
 
 class Bone(object):
     def __init__(self, node):
@@ -91,7 +103,7 @@ class Scene(object):
         self.Name = ''
         self.Version = ''
         self.Bricks = []
-        self.Scenecamera = None
+        self.Scenecamera = []
 
         data = ''
         if file.endswith('.lxfml'):
@@ -114,7 +126,7 @@ class Scene(object):
             elif node.nodeName == 'Cameras':
                 for childnode in node.childNodes:
                     if childnode.nodeName == 'Camera':
-                        self.Scenecamera = SceneCamera(node=childnode)
+                        self.Scenecamera.append(SceneCamera(node=childnode))
             elif node.nodeName == 'Bricks':
                 for childnode in node.childNodes:
                     if childnode.nodeName == 'Brick':
@@ -591,7 +603,7 @@ class LDDDialog(gui.GeDialog):
                     else:
                         geo = geometriecache[pa.designID]
 
-                c4d.StatusSetText(geo.Partname)
+                c4d.StatusSetText('{0}-[{1}]'.format(geo.Partname.encode('utf-8'), spinner()))
                 
                 obj = c4d.PolygonObject(geo.valuecount(), geo.facecount())
                 obj.SetName(geo.Partname)
@@ -613,7 +625,7 @@ class LDDDialog(gui.GeDialog):
                                         geo.Parts[part].normals[k] = b.matrix.MulV(n)
                         else:
                             for j, p in enumerate(geo.Parts[part].positions):
-                                geo.Parts[part].positions[j] = FLIP.MulV(p) * self.GetInt32(IDC_SLIDER_SCALE)
+                                geo.Parts[part].positions[j] = FLIP.Mul(p) * self.GetInt32(IDC_SLIDER_SCALE)
 
                             for k, n in enumerate(geo.Parts[part].normals):
                                 geo.Parts[part].normals[k] = FLIP.MulV(n)
@@ -749,6 +761,7 @@ class LDDDialog(gui.GeDialog):
                     pa.Bones[0].matrix.off *= self.GetInt32(IDC_SLIDER_SCALE)
 
                     ins = c4d.BaseObject(c4d.Oinstance)
+                    #ins[c4d.INSTANCEOBJECT_RENDERINSTANCE_MODE] = self.GetBool(IDC_RENDERINSTANCES)
                     ins[c4d.INSTANCEOBJECT_RENDERINSTANCE] = self.GetBool(IDC_RENDERINSTANCES)
                     ins.SetName(geo.Partname)
                     
