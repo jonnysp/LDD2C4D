@@ -761,8 +761,7 @@ class LDDDialog(gui.GeDialog):
                     pa.Bones[0].matrix.off *= self.GetInt32(IDC_SLIDER_SCALE)
 
                     ins = c4d.BaseObject(c4d.Oinstance)
-                    #ins[c4d.INSTANCEOBJECT_RENDERINSTANCE_MODE] = self.GetBool(IDC_RENDERINSTANCES)
-                    ins[c4d.INSTANCEOBJECT_RENDERINSTANCE] = self.GetBool(IDC_RENDERINSTANCES)
+                    ins[c4d.INSTANCEOBJECT_RENDERINSTANCE_MODE] = self.GetBool(IDC_RENDERINSTANCES)
                     ins.SetName(geo.Partname)
                     
                     if pa.designID in instancecache:
