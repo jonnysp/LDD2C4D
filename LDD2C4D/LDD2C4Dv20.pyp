@@ -8,7 +8,7 @@ from c4d import bitmaps, gui, plugins, documents, utils
 from xml.dom import minidom
 
 PLUGIN_ID = 1038148
-VERSION = '1.0.3'
+VERSION = '1.0.4'
 
 print("- - - - - - - - - - - -")
 print("           _           ")
@@ -61,13 +61,19 @@ def spinner():
 
     return SPINNSTRING[CURRENTSPINN]
 
+class Group(object):
+    def __init__(self, node):
+        self.partRefs = node.getAttribute('partRefs').split(',')
+        
 class Bone(object):
     def __init__(self, node):
+        self.refID = node.getAttribute('refID')
         (a, b, c, d, e, f, g, h, i, x, y, z) = map(float, node.getAttribute('transformation').split(','))
         self.matrix = FLIP * c4d.Matrix(c4d.Vector(x, y, z), c4d.Vector(a, b, c), c4d.Vector(d, e, f), c4d.Vector(g, h, i)) 
 
 class Part(object):
     def __init__(self, node):
+        self.refID = node.getAttribute('refID')
         self.designID = node.getAttribute('designID')
         self.materials = map(str, node.getAttribute('materials').split(',')) 
         lastm = '0'
@@ -85,6 +91,9 @@ class Part(object):
 
 class Brick(object):
     def __init__(self, node):
+        self.isGrouped = False
+        self.GroupIDX = 0
+        self.refID = node.getAttribute('refID')
         self.designID = node.getAttribute('designID')
         self.Parts = []
         for childnode in node.childNodes:
@@ -93,6 +102,7 @@ class Brick(object):
 
 class SceneCamera(object):
     def __init__(self, node):
+        self.refID = node.getAttribute('refID')
         (a, b, c, d, e, f, g, h, i, x, y, z) = map(float, node.getAttribute('transformation').split(','))
         self.matrix = c4d.Matrix(c4d.Vector(x, y, z), c4d.Vector(a, b, c), c4d.Vector(d, e, f),c4d.Vector(g, h, i))
         self.fieldOfView = float(node.getAttribute('fieldOfView'))
@@ -104,6 +114,7 @@ class Scene(object):
         self.Version = ''
         self.Bricks = []
         self.Scenecamera = []
+        self.Groups = []
 
         data = ''
         if file.endswith('.lxfml'):
@@ -131,7 +142,21 @@ class Scene(object):
                 for childnode in node.childNodes:
                     if childnode.nodeName == 'Brick':
                         self.Bricks.append(Brick(node=childnode))
-        
+            elif node.nodeName == 'GroupSystems':
+                for childnode in node.childNodes:
+                    if childnode.nodeName == 'GroupSystem':
+                        for childnode in childnode.childNodes:
+                            if childnode.nodeName == 'Group':
+                                self.Groups.append(Group(node=childnode))
+
+        for i in range(len(self.Groups)):
+            for j in range(len(self.Groups[i].partRefs)):
+                for brick in self.Bricks:
+                    if brick.refID == self.Groups[i].partRefs[j]:
+                        brick.isGrouped = True
+                        brick.GroupIDX = i
+                        break
+
         print('Scene "'+ self.Name + '" Brickversion: ' + str(self.Version))
 
 class GeometrieReader(object):
@@ -390,7 +415,7 @@ class DBinfo(object):
     def __init__(self, data):
         xml = minidom.parseString(data)
         self.Version = xml.getElementsByTagName('Bricks')[0].attributes['version'].value
-        print('Database Brickversion: ' + str(self.Version))
+        print('Brick Version: ' + str(self.Version))
 
 class LDDDialog(gui.GeDialog):
     LDDData = None
@@ -476,7 +501,7 @@ class LDDDialog(gui.GeDialog):
     
     @staticmethod
     def About():
-        gui.MessageDialog("LDD2C4D - " + VERSION + " by jonnysp 2016", c4d.GEMB_OK)
+        gui.MessageDialog("LDD2C4D - " + VERSION + " by jonnysp 2018", c4d.GEMB_OK)
         return True
 
     def ChecktexturePath(self):
@@ -534,6 +559,9 @@ class LDDDialog(gui.GeDialog):
                 self.ChecktexturePath()
         else:
             self.LDDData = c4d.BaseContainer()
+
+        if self.database.dbinfo.Version:
+            self.SetTitle("LDD2C4D - " + VERSION + " Brick Version:" + self.database.dbinfo.Version)
         return True
 
     def UpdatePrefs(self):
@@ -582,12 +610,20 @@ class LDDDialog(gui.GeDialog):
 
         geometriecache = {}
         instancecache = {}
+        groupnodes = {}
 
         statuscount = 0
         allcount = len(scene.Bricks)
 
-        for bri in scene.Bricks:
 
+        # generate groups
+        for i in range(len(scene.Groups)):
+            groupnode = c4d.BaseObject(c4d.Onull)
+            groupnode.SetName(i)
+            groupnodes[i] = groupnode
+            groupnode.InsertUnder(scenenode)
+
+        for bri in scene.Bricks:
             statuscount += 1
             c4d.StatusSetBar(statuscount * 100 / allcount)
 
@@ -752,8 +788,11 @@ class LDDDialog(gui.GeDialog):
                         obj.InsertTag(textag)
                     # -----------------------------------------------------------------
 
-                    obj.Message(c4d.MSG_UPDATE) 
-                    obj.InsertUnder(scenenode)
+                    obj.Message(c4d.MSG_UPDATE)
+                    if bri.isGrouped == True and bri.GroupIDX in groupnodes:
+                        obj.InsertUnder(groupnodes[bri.GroupIDX])
+                    else:
+                        obj.InsertUnder(scenenode)
                     
                 #add Instance part
                 else:
@@ -762,6 +801,7 @@ class LDDDialog(gui.GeDialog):
 
                     ins = c4d.BaseObject(c4d.Oinstance)
                     ins[c4d.INSTANCEOBJECT_RENDERINSTANCE_MODE] = self.GetBool(IDC_RENDERINSTANCES)
+                    #ins[c4d.INSTANCEOBJECT_RENDERINSTANCE] = self.GetBool(IDC_RENDERINSTANCES)
                     ins.SetName(geo.Partname)
                     
                     if pa.designID in instancecache:
@@ -803,8 +843,12 @@ class LDDDialog(gui.GeDialog):
                     #----------------------------------------------------------------------  
 
                     ins.SetMg(pa.Bones[0].matrix * FLIP)
-                    ins.Message(c4d.MSG_UPDATE) 
-                    ins.InsertUnder(scenenode)
+                    ins.Message(c4d.MSG_UPDATE)
+
+                    if bri.isGrouped == True and bri.GroupIDX in groupnodes:
+                        ins.InsertUnder(groupnodes[bri.GroupIDX])
+                    else:
+                        ins.InsertUnder(scenenode) 
 
         if self.GetBool(IDC_INSTANCES):
             instancenode.Message(c4d.MSG_UPDATE)
