@@ -8,7 +8,7 @@ from c4d import bitmaps, gui, plugins, documents, utils
 from xml.dom import minidom
 
 PLUGIN_ID = 1038148
-VERSION = '1.0.4'
+VERSION = '1.0.6'
 
 print("- - - - - - - - - - - -")
 print("           _           ")
@@ -73,6 +73,8 @@ class Bone(object):
 
 class Part(object):
     def __init__(self, node):
+        self.isGrouped = False
+        self.GroupIDX = 0
         self.refID = node.getAttribute('refID')
         self.designID = node.getAttribute('designID')
         self.materials = map(str, node.getAttribute('materials').split(',')) 
@@ -91,8 +93,6 @@ class Part(object):
 
 class Brick(object):
     def __init__(self, node):
-        self.isGrouped = False
-        self.GroupIDX = 0
         self.refID = node.getAttribute('refID')
         self.designID = node.getAttribute('designID')
         self.Parts = []
@@ -150,12 +150,11 @@ class Scene(object):
                                 self.Groups.append(Group(node=childnode))
 
         for i in range(len(self.Groups)):
-            for j in range(len(self.Groups[i].partRefs)):
-                for brick in self.Bricks:
-                    if brick.refID == self.Groups[i].partRefs[j]:
-                        brick.isGrouped = True
-                        brick.GroupIDX = i
-                        break
+            for brick in self.Bricks:
+                for part in brick.Parts:
+                    if part.refID in self.Groups[i].partRefs:
+                        part.isGrouped = True
+                        part.GroupIDX = i
 
         print('Scene "'+ self.Name + '" Brickversion: ' + str(self.Version))
 
@@ -224,14 +223,14 @@ class Geometrie(object):
         self.designID = designID
         self.Parts = {}
         self.Partname = ''
-        GeometrieLocation = '{0}{1}{2}'.format(GEOMETRIEPATH, self.designID,'.g')
+        GeometrieLocation = '{0}{1}{2}'.format(GEOMETRIEPATH, designID,'.g')
         GeometrieCount = 0
         while str(GeometrieLocation) in database.filelist:
             self.Parts[GeometrieCount] = GeometrieReader(data=database.filelist[GeometrieLocation].read())
             GeometrieCount += 1
-            GeometrieLocation = '{0}{1}{2}{3}'.format(GEOMETRIEPATH, self.designID,'.g',GeometrieCount)
+            GeometrieLocation = '{0}{1}{2}{3}'.format(GEOMETRIEPATH, designID,'.g',GeometrieCount)
 
-        primitive = Primitive(data = database.filelist[PRIMITIVEPATH + self.designID + '.xml'].read())
+        primitive = Primitive(data = database.filelist[PRIMITIVEPATH + designID + '.xml'].read())
         self.Partname = primitive.designname
         # preflex
         for part in self.Parts:
@@ -266,6 +265,7 @@ class Geometrie(object):
 
 class Bone2():
     def __init__(self,boneId=0, angle=0, ax=0, ay=0, az=0, tx=0, ty=0, tz=0):
+        self.ID = boneId
         self.matrix = c4d.utils.RotAxisToMatrix(c4d.Vector(ax,ay,az), utils.Rad(angle))
         self.matrix.off = -self.matrix.Mul(c4d.Vector(tx, ty, tz))
 
@@ -845,8 +845,8 @@ class LDDDialog(gui.GeDialog):
                     ins.SetMg(pa.Bones[0].matrix * FLIP)
                     ins.Message(c4d.MSG_UPDATE)
 
-                    if bri.isGrouped == True and bri.GroupIDX in groupnodes:
-                        ins.InsertUnder(groupnodes[bri.GroupIDX])
+                    if pa.isGrouped == True and pa.GroupIDX in groupnodes:
+                        ins.InsertUnder(groupnodes[pa.GroupIDX])
                     else:
                         ins.InsertUnder(scenenode) 
 
@@ -933,6 +933,8 @@ class LDDDialog(gui.GeDialog):
                             layerID = layer.GetDataID()
                             m.SetParameter(layerID + c4d.REFLECTION_LAYER_FRESNEL_MODE, c4d.REFLECTION_FRESNEL_DIELECTRIC, c4d.DESCFLAGS_SET_0)
                             m.SetParameter(layerID + c4d.REFLECTION_LAYER_FRESNEL_PRESET, c4d.REFLECTION_FRESNEL_DIELECTRIC_PET, c4d.DESCFLAGS_SET_0)
+                            m.SetParameter(layerID + c4d.REFLECTION_LAYER_MAIN_VALUE_ROUGHNESS, 0.28, c4d.DESCFLAGS_SET_0)
+
 
                 elif lddmat.mattype == 'shinySteel':
 
@@ -944,6 +946,7 @@ class LDDDialog(gui.GeDialog):
                             layerID = layer.GetDataID()
                             m.SetParameter(layerID + c4d.REFLECTION_LAYER_FRESNEL_MODE, c4d.REFLECTION_FRESNEL_CONDUCTOR, c4d.DESCFLAGS_SET_0)
                             m.SetParameter(layerID + c4d.REFLECTION_LAYER_FRESNEL_METAL, c4d.REFLECTION_FRESNEL_METAL_ALUMINUM, c4d.DESCFLAGS_SET_0)
+                            m.SetParameter(layerID + c4d.REFLECTION_LAYER_MAIN_VALUE_ROUGHNESS, 0.28, c4d.DESCFLAGS_SET_0)
 
             doc.InsertMaterial(m)
             m.Update(True, False)
