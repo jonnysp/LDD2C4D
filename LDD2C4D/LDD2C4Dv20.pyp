@@ -789,8 +789,8 @@ class LDDDialog(gui.GeDialog):
                     # -----------------------------------------------------------------
 
                     obj.Message(c4d.MSG_UPDATE)
-                    if bri.isGrouped == True and bri.GroupIDX in groupnodes:
-                        obj.InsertUnder(groupnodes[bri.GroupIDX])
+                    if pa.isGrouped == True and pa.GroupIDX in groupnodes:
+                        obj.InsertUnder(groupnodes[pa.GroupIDX])
                     else:
                         obj.InsertUnder(scenenode)
                     
