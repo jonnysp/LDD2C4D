@@ -1,4 +1,5 @@
 import c4d
+import sys
 import os
 import struct
 import zipfile
@@ -7,8 +8,12 @@ import time
 from c4d import bitmaps, gui, plugins, documents, utils
 from xml.dom import minidom
 
+if sys.version_info < (3, 0):
+	reload(sys)
+	sys.setdefaultencoding('utf-8')
+
 PLUGIN_ID = 1038148
-VERSION = '1.0.3'
+VERSION = '1.0.8'
 
 print("- - - - - - - - - - - -")
 print("           _           ")
@@ -61,15 +66,25 @@ def spinner():
 
     return SPINNSTRING[CURRENTSPINN]
 
+class Group(object):
+    def __init__(self, node):
+        self.partRefs = node.getAttribute('partRefs').split(',')
+        
 class Bone(object):
     def __init__(self, node):
-        (a, b, c, d, e, f, g, h, i, x, y, z) = map(float, node.getAttribute('transformation').split(','))
+        self.refID = node.getAttribute('refID')
+        (a, b, c, d, e, f, g, h, i, x, y, z) = list(map(float, node.getAttribute('transformation').split(',')))
         self.matrix = FLIP * c4d.Matrix(c4d.Vector(x, y, z), c4d.Vector(a, b, c), c4d.Vector(d, e, f), c4d.Vector(g, h, i)) 
 
 class Part(object):
     def __init__(self, node):
+        self.isGrouped = False
+        self.GroupIDX = 0
+        self.Bones = []
+        self.refID = node.getAttribute('refID')
         self.designID = node.getAttribute('designID')
-        self.materials = map(str, node.getAttribute('materials').split(',')) 
+        self.materials = list(map(str, node.getAttribute('materials').split(',')))
+        
         lastm = '0'
         for i, m in enumerate(self.materials):
             if (m == '0'):
@@ -77,14 +92,15 @@ class Part(object):
             else:
                 lastm = m
         if node.hasAttribute('decoration'):
-            self.decoration = map(str,node.getAttribute('decoration').split(','))
-        self.Bones = []
+            self.decoration = list(map(str,node.getAttribute('decoration').split(',')))
+        
         for childnode in node.childNodes:
             if childnode.nodeName == 'Bone':
                 self.Bones.append(Bone(node=childnode)) 
 
 class Brick(object):
     def __init__(self, node):
+        self.refID = node.getAttribute('refID')
         self.designID = node.getAttribute('designID')
         self.Parts = []
         for childnode in node.childNodes:
@@ -93,17 +109,18 @@ class Brick(object):
 
 class SceneCamera(object):
     def __init__(self, node):
-        (a, b, c, d, e, f, g, h, i, x, y, z) = map(float, node.getAttribute('transformation').split(','))
+        self.refID = node.getAttribute('refID')
+        (a, b, c, d, e, f, g, h, i, x, y, z) = list(map(float, node.getAttribute('transformation').split(',')))
         self.matrix = c4d.Matrix(c4d.Vector(x, y, z), c4d.Vector(a, b, c), c4d.Vector(d, e, f),c4d.Vector(g, h, i))
         self.fieldOfView = float(node.getAttribute('fieldOfView'))
         self.distance = float(node.getAttribute('distance'))
 
 class Scene(object):
     def __init__(self, file):
-        self.Name = ''
         self.Version = ''
         self.Bricks = []
         self.Scenecamera = []
+        self.Groups = []
 
         data = ''
         if file.endswith('.lxfml'):
@@ -131,10 +148,23 @@ class Scene(object):
                 for childnode in node.childNodes:
                     if childnode.nodeName == 'Brick':
                         self.Bricks.append(Brick(node=childnode))
-        
+            elif node.nodeName == 'GroupSystems':
+                for childnode in node.childNodes:
+                    if childnode.nodeName == 'GroupSystem':
+                        for childnode in childnode.childNodes:
+                            if childnode.nodeName == 'Group':
+                                self.Groups.append(Group(node=childnode))
+
+        for i in range(len(self.Groups)):
+            for brick in self.Bricks:
+                for part in brick.Parts:
+                    if part.refID in self.Groups[i].partRefs:
+                        part.isGrouped = True
+                        part.GroupIDX = i
+
         print('Scene "'+ self.Name + '" Brickversion: ' + str(self.Version))
 
-class GeometrieReader(object):
+class GeometryReader(object):
     def __init__(self, data):
         self.offset = 0
         self.data = data
@@ -148,7 +178,7 @@ class GeometrieReader(object):
         if self.readInt() == 1111961649:
             self.valueCount = self.readInt()
             self.indexCount = self.readInt()
-            self.faceCount = self.indexCount / 3
+            self.faceCount = int(self.indexCount / 3)
             options = self.readInt()
 
             for i in range(0, self.valueCount):            
@@ -182,31 +212,37 @@ class GeometrieReader(object):
                     self.bonemap[i] = self.read_Int(datastart + boneoffset)
     
     def read_Int(self,_offset):
-        return struct.unpack_from('i', self.data, _offset)[0]
+        if sys.version_info < (3, 0):
+            return int(struct.unpack_from('i', self.data, _offset)[0])
+        else:
+            return int.from_bytes(self.data[_offset:_offset + 4], byteorder='little')
 
     def readInt(self):
-        ret = struct.unpack_from('i', self.data, self.offset)[0]
+        if sys.version_info < (3, 0):
+            ret = int(struct.unpack_from('i', self.data, self.offset)[0])
+        else:
+            ret = int.from_bytes(self.data[self.offset:self.offset + 4], byteorder='little')
         self.offset += 4
-        return int(ret)
+        return ret
 
     def readFloat(self):
-        ret = struct.unpack_from('f', self.data, self.offset)[0]
+        ret = float(struct.unpack_from('f', self.data, self.offset)[0])
         self.offset += 4
-        return float(ret)
+        return ret
 
-class Geometrie(object):
+class Geometry(object):
     def __init__(self, designID, database):
         self.designID = designID
         self.Parts = {}
         self.Partname = ''
-        GeometrieLocation = '{0}{1}{2}'.format(GEOMETRIEPATH, self.designID,'.g')
-        GeometrieCount = 0
-        while str(GeometrieLocation) in database.filelist:
-            self.Parts[GeometrieCount] = GeometrieReader(data=database.filelist[GeometrieLocation].read())
-            GeometrieCount += 1
-            GeometrieLocation = '{0}{1}{2}{3}'.format(GEOMETRIEPATH, self.designID,'.g',GeometrieCount)
+        GeometryLocation = '{0}{1}{2}'.format(GEOMETRIEPATH, designID,'.g')
+        GeometryCount = 0
+        while str(GeometryLocation) in database.filelist:
+            self.Parts[GeometryCount] = GeometryReader(data=database.filelist[GeometryLocation].read())
+            GeometryCount += 1
+            GeometryLocation = '{0}{1}{2}{3}'.format(GEOMETRIEPATH, designID,'.g',GeometryCount)
 
-        primitive = Primitive(data = database.filelist[PRIMITIVEPATH + self.designID + '.xml'].read())
+        primitive = Primitive(data = database.filelist[PRIMITIVEPATH + designID + '.xml'].read())
         self.Partname = primitive.designname
         # preflex
         for part in self.Parts:
@@ -239,12 +275,13 @@ class Geometrie(object):
             count += self.Parts[part].texCount
         return count
 
-class Bone2():
+class Bone2(object):
     def __init__(self,boneId=0, angle=0, ax=0, ay=0, az=0, tx=0, ty=0, tz=0):
+        self.ID = boneId
         self.matrix = c4d.utils.RotAxisToMatrix(c4d.Vector(ax,ay,az), utils.Rad(angle))
         self.matrix.off = -self.matrix.Mul(c4d.Vector(tx, ty, tz))
 
-class Primitive():
+class Primitive(object):
     def __init__(self,data):
         self.designname = ''
         self.Bones = []
@@ -264,21 +301,37 @@ class LOCReader(object):
         self.offset = 0
         self.values = {}
         self.data = data
-        if ord(self.data[0]) == 50 and ord(self.data[1]) == 0:
-            self.offset += 2
-            while self.offset < len(self.data):
-                key = self.NextString().replace('Material', '')
-                value = self.NextString()
-                self.values[key] = value
+        if sys.version_info < (3, 0):
+            if ord(self.data[0]) == 50 and ord(self.data[1]) == 0:
+                self.offset += 2
+                while self.offset < len(self.data):
+                    key = self.NextString().replace('Material', '')
+                    value = self.NextString()
+                    self.values[key] = value
+        else:
+            if int(self.data[0]) == 50 and int(self.data[1]) == 0:
+                self.offset += 2
+                while self.offset < len(self.data):
+                    key = self.NextString().replace('Material', '')
+                    value = self.NextString()
+                    self.values[key] = value
 
     def NextString(self):
         out = ''
-        t = ord(self.data[self.offset])
-        self.offset += 1
-        while not t == 0:
-            out = '{0}{1}'.format(out,chr(t))
+        if sys.version_info < (3, 0):
             t = ord(self.data[self.offset])
             self.offset += 1
+            while not t == 0:
+                out = '{0}{1}'.format(out,chr(t))
+                t = ord(self.data[self.offset])
+                self.offset += 1
+        else:
+            t = int(self.data[self.offset])
+            self.offset += 1
+            while not t == 0:
+                out = '{0}{1}'.format(out,chr(t))
+                t = int(self.data[self.offset])
+                self.offset += 1
         return out
 
 class Materials(object):
@@ -306,7 +359,7 @@ class Material(object):
         self.b = float(b)
         self.a = float(a)
 
-class LIFFile():
+class LIFFile(object):
     def __init__(self, name, offset, size, handle):
         self.handle = handle
         self.name = name
@@ -332,7 +385,7 @@ class LIFReader(object):
             self.initok = False
             return
         else:
-            if self.filehandle.read(4) == "LIFF":
+            if self.filehandle.read(4).decode() == "LIFF":
                 self.parse(prefix='', offset=self.readInt(offset=72) + 64)
                 if '/Materials.xml' in self.filelist and '/info.xml' in self.filelist:
                     self.dbinfo = DBinfo(data=self.filelist['/info.xml'].read())
@@ -380,17 +433,23 @@ class LIFReader(object):
 
     def readInt(self, offset=0):
         self.filehandle.seek(offset, 0)
-        return int(self.filehandle.read(4).encode('hex'), 16)
+        if sys.version_info < (3, 0):
+            return int(struct.unpack('>i', self.filehandle.read(4))[0])
+        else:
+            return int.from_bytes(self.filehandle.read(4), byteorder='big')
 
     def readShort(self, offset=0):
         self.filehandle.seek(offset, 0)
-        return int(self.filehandle.read(2).encode('hex'), 8)
+        if sys.version_info < (3, 0):
+            return int(struct.unpack('>h', self.filehandle.read(2))[0])
+        else:
+            return int.from_bytes(self.filehandle.read(2), byteorder='big')
 
 class DBinfo(object):
     def __init__(self, data):
         xml = minidom.parseString(data)
         self.Version = xml.getElementsByTagName('Bricks')[0].attributes['version'].value
-        print('Database Brickversion: ' + str(self.Version))
+        print('Brick Version: ' + str(self.Version))
 
 class LDDDialog(gui.GeDialog):
     LDDData = None
@@ -476,7 +535,7 @@ class LDDDialog(gui.GeDialog):
     
     @staticmethod
     def About():
-        gui.MessageDialog("LDD2C4D - " + VERSION + " by jonnysp 2016", c4d.GEMB_OK)
+        gui.MessageDialog("LDD2C4D - " + VERSION + " by jonnysp 2018", c4d.GEMB_OK)
         return True
 
     def ChecktexturePath(self):
@@ -534,6 +593,9 @@ class LDDDialog(gui.GeDialog):
                 self.ChecktexturePath()
         else:
             self.LDDData = c4d.BaseContainer()
+
+        if self.database.dbinfo.Version:
+            self.SetTitle("LDD2C4D - " + VERSION + " Brick Version:" + self.database.dbinfo.Version)
         return True
 
     def UpdatePrefs(self):
@@ -582,12 +644,20 @@ class LDDDialog(gui.GeDialog):
 
         geometriecache = {}
         instancecache = {}
+        groupnodes = {}
 
         statuscount = 0
         allcount = len(scene.Bricks)
 
-        for bri in scene.Bricks:
 
+        # generate groups
+        for i in range(len(scene.Groups)):
+            groupnode = c4d.BaseObject(c4d.Onull)
+            groupnode.SetName(i)
+            groupnodes[i] = groupnode
+            groupnode.InsertUnder(scenenode)
+
+        for bri in scene.Bricks:
             statuscount += 1
             c4d.StatusSetBar(statuscount * 100 / allcount)
 
@@ -595,15 +665,15 @@ class LDDDialog(gui.GeDialog):
 
                 #cache geometrie is not flex
                 if len(pa.Bones) > 1 or self.GetBool(IDC_INSTANCES) == False:
-                    geo = Geometrie(designID=pa.designID, database=self.database)
+                    geo = Geometry(designID=pa.designID, database=self.database)
                 else:
                     if pa.designID not in geometriecache:
-                        geo = Geometrie(designID=pa.designID, database=self.database)
+                        geo = Geometry(designID=pa.designID, database=self.database)
                         geometriecache[pa.designID] = geo
                     else:
                         geo = geometriecache[pa.designID]
 
-                c4d.StatusSetText('{0}-[{1}]'.format(geo.Partname.encode('utf-8'), spinner()))
+                c4d.StatusSetText('{0} [{1}]'.format(geo.Partname, spinner()))
                 
                 obj = c4d.PolygonObject(geo.valuecount(), geo.facecount())
                 obj.SetName(geo.Partname)
@@ -752,8 +822,11 @@ class LDDDialog(gui.GeDialog):
                         obj.InsertTag(textag)
                     # -----------------------------------------------------------------
 
-                    obj.Message(c4d.MSG_UPDATE) 
-                    obj.InsertUnder(scenenode)
+                    obj.Message(c4d.MSG_UPDATE)
+                    if pa.isGrouped == True and pa.GroupIDX in groupnodes:
+                        obj.InsertUnder(groupnodes[pa.GroupIDX])
+                    else:
+                        obj.InsertUnder(scenenode)
                     
                 #add Instance part
                 else:
@@ -761,8 +834,8 @@ class LDDDialog(gui.GeDialog):
                     pa.Bones[0].matrix.off *= self.GetInt32(IDC_SLIDER_SCALE)
 
                     ins = c4d.BaseObject(c4d.Oinstance)
-                    #ins[c4d.INSTANCEOBJECT_RENDERINSTANCE_MODE] = self.GetBool(IDC_RENDERINSTANCES)
-                    ins[c4d.INSTANCEOBJECT_RENDERINSTANCE] = self.GetBool(IDC_RENDERINSTANCES)
+                    ins[c4d.INSTANCEOBJECT_RENDERINSTANCE_MODE] = self.GetBool(IDC_RENDERINSTANCES)
+                    #ins[c4d.INSTANCEOBJECT_RENDERINSTANCE] = self.GetBool(IDC_RENDERINSTANCES)
                     ins.SetName(geo.Partname)
                     
                     if pa.designID in instancecache:
@@ -804,8 +877,12 @@ class LDDDialog(gui.GeDialog):
                     #----------------------------------------------------------------------  
 
                     ins.SetMg(pa.Bones[0].matrix * FLIP)
-                    ins.Message(c4d.MSG_UPDATE) 
-                    ins.InsertUnder(scenenode)
+                    ins.Message(c4d.MSG_UPDATE)
+
+                    if pa.isGrouped == True and pa.GroupIDX in groupnodes:
+                        ins.InsertUnder(groupnodes[pa.GroupIDX])
+                    else:
+                        ins.InsertUnder(scenenode) 
 
         if self.GetBool(IDC_INSTANCES):
             instancenode.Message(c4d.MSG_UPDATE)
@@ -890,6 +967,8 @@ class LDDDialog(gui.GeDialog):
                             layerID = layer.GetDataID()
                             m.SetParameter(layerID + c4d.REFLECTION_LAYER_FRESNEL_MODE, c4d.REFLECTION_FRESNEL_DIELECTRIC, c4d.DESCFLAGS_SET_0)
                             m.SetParameter(layerID + c4d.REFLECTION_LAYER_FRESNEL_PRESET, c4d.REFLECTION_FRESNEL_DIELECTRIC_PET, c4d.DESCFLAGS_SET_0)
+                            m.SetParameter(layerID + c4d.REFLECTION_LAYER_MAIN_VALUE_ROUGHNESS, 0.28, c4d.DESCFLAGS_SET_0)
+
 
                 elif lddmat.mattype == 'shinySteel':
 
@@ -901,6 +980,7 @@ class LDDDialog(gui.GeDialog):
                             layerID = layer.GetDataID()
                             m.SetParameter(layerID + c4d.REFLECTION_LAYER_FRESNEL_MODE, c4d.REFLECTION_FRESNEL_CONDUCTOR, c4d.DESCFLAGS_SET_0)
                             m.SetParameter(layerID + c4d.REFLECTION_LAYER_FRESNEL_METAL, c4d.REFLECTION_FRESNEL_METAL_ALUMINUM, c4d.DESCFLAGS_SET_0)
+                            m.SetParameter(layerID + c4d.REFLECTION_LAYER_MAIN_VALUE_ROUGHNESS, 0.28, c4d.DESCFLAGS_SET_0)
 
             doc.InsertMaterial(m)
             m.Update(True, False)
